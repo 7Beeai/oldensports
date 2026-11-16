@@ -204,6 +204,40 @@ update clientes set identificador = 'teste:' || identificador where identificado
 select limpar_testes();
 ```
 
+## 8. Fotos dos produtos
+
+O agente mostra a foto do produto quando o apresenta pela primeira vez. Ele só usa o link cadastrado no banco e nunca inventa um.
+
+### Preparar o banco
+
+No **SQL Editor**, rode `supabase/05_fotos.sql` inteiro. Ele cria a coluna `foto_url` na tabela `produtos` e faz o catálogo enviado ao agente incluir a linha `Foto:`.
+
+### Hospedar as fotos (Supabase Storage, gratuito)
+
+1. No Supabase, abra **Storage → New bucket**, dê o nome `produtos` e ligue **Public bucket**.
+2. Clique em **Upload files** e envie uma foto por produto. JPG ou PNG, de preferência quadrada e com até 300 KB, para carregar rápido no celular.
+3. Clique na foto e em **Get URL** (ou **Copy URL**). O link fica assim: `https://SEU-PROJETO.supabase.co/storage/v1/object/public/produtos/cel-br.jpg`.
+4. Em **Table Editor → produtos**, cole o link na coluna `foto_url` do produto. Ou use o SQL:
+
+   ```sql
+   update produtos set foto_url = 'COLE-O-LINK-AQUI' where sku = 'CEL-BR';
+   ```
+
+Produto sem `foto_url` aparece para o agente como "(sem foto cadastrada)", e ele segue sem foto.
+
+Também dá para usar o link da imagem que já está no site da loja (clique com o botão direito na foto → **Copiar endereço da imagem**). Alguns sites bloqueiam imagens abertas fora deles; se a foto não aparecer no chat, use o Supabase Storage.
+
+### Atualizar o n8n
+
+O prompt ganhou uma seção **Fotos**. Para aplicar, faça uma das duas opções:
+
+- Baixe o `n8n/1-nucleo-agente.json` novo e importe de novo, como na seção 3. Depois religue o Núcleo no chat e na bateria.
+- Ou cole o conteúdo de `n8n/system-prompt.md` na **System Message** do nó **Agente Olden** e clique em **Publish**.
+
+### No WhatsApp
+
+No chat de demonstração, a foto aparece dentro da conversa porque o chat do n8n entende Markdown (`![nome](link)`). O WhatsApp não entende Markdown: lá a foto precisa ser enviada como mídia, por uma chamada ao provedor (por exemplo, o envio de mídia da Evolution API). Quando o WhatsApp for conectado, o agente ganha uma ferramenta `enviar_foto` que manda a imagem pelo provedor, usando o mesmo `foto_url` do banco.
+
 ## Regerar os workflows
 
 Os três JSON são gerados a partir de `n8n/system-prompt.md` e `n8n/build/gerar-workflows.js`:
