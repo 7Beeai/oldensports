@@ -31,13 +31,13 @@
               "id": "cfg-0",
               "name": "sessao",
               "type": "string",
-              "value": "={{ $json.sessao }}"
+              "value": "={{ $json.sessao || 'teste:manual' }}"
             },
             {
               "id": "cfg-1",
               "name": "mensagem",
               "type": "string",
-              "value": "={{ $json.mensagem }}"
+              "value": "={{ $json.mensagem || 'Oi, quero conhecer as camisas' }}"
             },
             {
               "id": "cfg-2",

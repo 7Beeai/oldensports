@@ -62,8 +62,9 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
         mode: 'manual',
         assignments: {
           assignments: [
-            ['sessao', 'string', '={{ $json.sessao }}'],
-            ['mensagem', 'string', '={{ $json.mensagem }}'],
+            // Vazio quando o Núcleo é executado sozinho (botão Execute): usa uma sessão de teste
+            ['sessao', 'string', "={{ $json.sessao || 'teste:manual' }}"],
+            ['mensagem', 'string', "={{ $json.mensagem || 'Oi, quero conhecer as camisas' }}"],
             ['modelo', 'string', `={{ $json.modelo || '${PADRAO.modelo}' }}`],
             ['esforco', 'string', `={{ $json.esforco || '${PADRAO.esforco}' }}`],
             ['janela', 'number', `={{ Number($json.janela) || ${PADRAO.janela} }}`],

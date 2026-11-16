@@ -73,8 +73,8 @@ Ficam no nó **Configuração** do núcleo. Quem chama o núcleo pode mandar out
 | `modelo` | `anthropic/claude-haiku-5.5` | Qualquer modelo da OpenRouter. Para comparar, ex.: `anthropic/claude-sonnet-5.5` |
 | `esforco` | `medium` | Quanto o modelo raciocina antes de responder: `low`, `medium` ou `high`. Mais esforço = mais preciso e mais lento |
 | `janela` | `20` | Quantas interações anteriores da conversa o agente lembra |
-| `sessao` | vem do chat | Identifica o cliente. `demo:` no chat público, `teste:` na bateria |
-| `mensagem` | vem do chat | O que o cliente escreveu |
+| `sessao` | vem do chat | Identifica o cliente. `demo:` no chat público, `teste:` na bateria, `teste:manual` quando o Núcleo é executado sozinho |
+| `mensagem` | vem do chat | O que o cliente escreveu. Executando o Núcleo sozinho, usa uma mensagem de teste |
 
 ### "Janela de contexto": dois sentidos
 
