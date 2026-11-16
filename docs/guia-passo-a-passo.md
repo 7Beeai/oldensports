@@ -40,6 +40,8 @@ Cliente ──► Chat do n8n (depois: WhatsApp)
 4. Nova query: cole `supabase/02_catalogo.sql` e clique em **Run**.
 5. Confira: rode `select catalogo_texto();` e veja os 8 produtos com preços e tamanhos.
 
+**Importante:** cada arquivo precisa ser enviado **inteiro, de uma vez**. Abra uma query nova, apague o que houver nela, cole o arquivo todo e clique em **Run** sem nenhum trecho selecionado (com uma seleção, o Supabase roda só a seleção). Não use o Assistant do Supabase para executar: ele pode quebrar o script em pedaços. Se o erro mostrar `LINE 1` ou `LINE 2` apontando para o meio do arquivo, é sinal de que só um pedaço foi enviado.
+
 Os dois arquivos podem rodar de novo sem duplicar nada. O `02_catalogo.sql` também serve para **resetar o estoque** para 8 depois dos testes.
 
 ### Pegar os dados de conexão
