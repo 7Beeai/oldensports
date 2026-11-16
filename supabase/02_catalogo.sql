@@ -43,8 +43,8 @@ insert into produtos (sku, nome, categoria, publico, descricao, caracteristicas,
  259.90, null, 246.91),
 
 ('BODY-AZ', 'Body Palmeiras Torcida Baby 2026 Jogo 3 Oficial', 'Body', 'Bebê',
- 'Body de bebê azul, inspirado no terceiro uniforme 2026, com gola V branca e o escudo com a cruz estampado no peito. Produto oficial.',
- null,
+ 'Body infantil para os pequenos torcedores começarem desde cedo a demonstrar a paixão pelo Verdão. Confortável, prático e com visual inspirado no clube, ótimo para o dia a dia, passeios ou para presentear. Tecido leve, mangas curtas, gola em V, acabamento branco na parte inferior e fechamento por botões de pressão, que facilitam a troca do bebê. Na frente, o escudo em evidência acompanhado de detalhes especiais para a nova geração de torcedores.',
+ 'Gola V | fechamento inferior com botões de pressão | composição 100% poliéster | leve, confortável e prático para o dia a dia. Cuidados: por ter mais de uma cor, não deixar de molho, não usar alvejante e evitar excesso de sabão. Após lavar, centrifugar ou torcer bem antes de secar.',
  null,
  149.90, null, 142.41),
 
