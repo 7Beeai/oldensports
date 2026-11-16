@@ -264,7 +264,7 @@ Limites que ela segue:
 
 ### Testar
 
-Na bateria, rode `cenarios: ['C07', 'C15', 'C16', 'C17']`. A IA avaliadora também passou a conferir o tom: tom errado tira até 2 pontos, informação errada continua sendo o mais grave. No Núcleo importado de novo, essa regra já vem pronta; se você só colou o prompt, importe também o `3-bateria-testes.json` novo para a avaliadora receber a regra de tom.
+Na bateria, rode `cenarios: ['C07', 'C15', 'C16', 'C17']`. A IA avaliadora também passou a conferir o tom: tom errado tira até 2 pontos, informação errada continua sendo o mais grave. Essa regra fica no workflow da bateria: importe de novo o `3-bateria-testes.json` num workflow vazio, religue o nó **Conversar com o agente** ao Núcleo e selecione as credenciais.
 
 ## Regerar os workflows
 
