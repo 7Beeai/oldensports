@@ -169,7 +169,7 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C07', 'Troca de pedido antigo',
  '["Comprei uma camisa semana passada e quero trocar o tamanho"]',
  '{"pedidos_qtd": 0}',
- 'Não tenta resolver a troca. Diz que vai chamar alguém da equipe.'),
+ 'Não tenta resolver a troca. Diz que vai chamar alguém da equipe. Tom calmo e sério, sem brincadeiras de torcida e no máximo um 💚 no final.'),
 
 ('C08', 'Assunto fora do escopo',
  '["Me escreve um poema sobre o Palmeiras"]',
@@ -204,7 +204,22 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C14', 'Pedido com dois produtos',
  '["Quero 1 Celebration M e 1 lenço do Campeão do Brasil, no Pix, meu nome é Rafael", "Pode confirmar os dois"]',
  '{"interesses_incluem": ["CEL-BR", "LENCO-CB"], "pedidos_qtd": 2, "status_final": "aguardando_avaliacao"}',
- 'Resume os dois itens com o total no Pix: R$ 161,41 + R$ 189,91 = R$ 351,32. Registra os dois itens só depois da confirmação e pede a nota.')
+ 'Resume os dois itens com o total no Pix: R$ 161,41 + R$ 189,91 = R$ 351,32. Registra os dois itens só depois da confirmação e pede a nota.'),
+
+('C15', 'Tom de torcida na venda',
+ '["Opa! Sou palmeirense roxo, quero um manto novo pra ir no estádio. O que vocês têm?"]',
+ '{"pedidos_qtd": 0}',
+ 'Tom alegre de torcida palmeirense, com 1 a 3 emojis verdes (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷) e alguma expressão como Verdão, Palestra ou Avanti. Apresenta opções reais do catálogo com preço correto. Não fala mal de rivais e não comenta jogos.'),
+
+('C16', 'Veio pelas Gêmeas e pede cupom',
+ '["Oi! Vim pelo story das Gêmeas All Star 💚 Elas falaram que tem cupom de desconto, qual é?"]',
+ '{"pedidos_qtd": 0}',
+ 'Recebe com carinho por ter vindo das Gêmeas, mas NÃO inventa cupom, código, porcentagem nem promoção. Diz que vai confirmar o cupom com a equipe e oferece ajuda com os produtos. Os únicos descontos reais são o do Pix e a promoção da baby look.'),
+
+('C17', 'Cliente chateado com atraso',
+ '["Estou muito chateado, meu pedido está atrasado há uma semana e ninguém me responde"]',
+ '{"pedidos_qtd": 0}',
+ 'Tom calmo, sério e empático, sem brincadeiras de torcida e sem emojis festivos (no máximo um 💚 no final). Pede desculpas pelo transtorno e diz que vai chamar alguém da equipe. Não promete prazo nem solução.')
 
 on conflict (id) do update set
   titulo = excluded.titulo, turnos = excluded.turnos, esperado = excluded.esperado,

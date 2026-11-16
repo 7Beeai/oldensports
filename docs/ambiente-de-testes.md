@@ -238,6 +238,34 @@ O prompt ganhou uma seção **Fotos**. Para aplicar, faça uma das duas opções
 
 No chat de demonstração, a foto aparece dentro da conversa porque o chat do n8n entende Markdown (`![nome](link)`). O WhatsApp não entende Markdown: lá a foto precisa ser enviada como mídia, por uma chamada ao provedor (por exemplo, o envio de mídia da Evolution API). Quando o WhatsApp for conectado, o agente ganha uma ferramenta `enviar_foto` que manda a imagem pelo provedor, usando o mesmo `foto_url` do banco.
 
+## 9. Tom de torcida palmeirense
+
+A Lia fala como uma amiga da arquibancada: alegre, com expressões de torcida (Verdão, Palestra, Avanti!) e de 1 a 3 emojis verdes por mensagem (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷). As regras ficam na seção **Tom: torcida palmeirense** de `n8n/system-prompt.md`.
+
+Limites que ela segue:
+
+- **Informação acima da animação:** preço, tamanho, total e confirmação do pedido sempre claros.
+- **Nada contra rivais**, e nenhum comentário sobre jogos, resultados ou jogadores (ela não tem essas informações atualizadas).
+- **Gêmeas All Star:** recebe com carinho quem vem por elas, mas nunca inventa cupom, brinde ou promoção.
+- **Momentos sérios** (troca, reclamação, atraso, pagamento): tom calmo, sem brincadeiras, no máximo um 💚.
+
+### Aplicar no n8n
+
+1. No **Núcleo**, cole o conteúdo de `n8n/system-prompt.md` na **System Message** do nó **Agente Olden** e clique em **Publish**.
+2. No **Chat de demonstração**, abra o nó **Chat público** e troque **Initial Message(s)** por:
+
+   ```
+   Oi! Eu sou a Lia, da Olden Sports 💚
+   Bora achar o manto do Verdão pra você? 🟢⚽
+   ```
+
+   Salve e clique em **Publish**.
+3. No Supabase, rode de novo o `supabase/04_ambiente_testes.sql`. Ele acrescenta 3 cenários de tom (C15 a C17) e ajusta o C07, sem apagar resultados anteriores.
+
+### Testar
+
+Na bateria, rode `cenarios: ['C07', 'C15', 'C16', 'C17']`. A IA avaliadora também passou a conferir o tom: tom errado tira até 2 pontos, informação errada continua sendo o mais grave. No Núcleo importado de novo, essa regra já vem pronta; se você só colou o prompt, importe também o `3-bateria-testes.json` novo para a avaliadora receber a regra de tom.
+
 ## Regerar os workflows
 
 Os três JSON são gerados a partir de `n8n/system-prompt.md` e `n8n/build/gerar-workflows.js`:

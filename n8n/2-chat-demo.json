@@ -15,7 +15,7 @@
         "public": true,
         "mode": "hostedChat",
         "authentication": "none",
-        "initialMessages": "Oi! Eu sou a Lia, atendente virtual da Olden Sports.\nComo posso te ajudar hoje?",
+        "initialMessages": "Oi! Eu sou a Lia, da Olden Sports 💚\nBora achar o manto do Verdão pra você? 🟢⚽",
         "options": {
           "title": "Olden Sports",
           "subtitle": "Atendimento virtual (ambiente de demonstração)",
