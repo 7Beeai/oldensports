@@ -1,8 +1,9 @@
 # oldensports
 
-Agente de atendimento da Olden Sports (n8n + Supabase + Gemini).
+Agente de atendimento da Olden Sports (n8n + Supabase + Claude Haiku 5.5 via OpenRouter).
 
-- Guia completo: [docs/guia-passo-a-passo.md](docs/guia-passo-a-passo.md)
-- Banco: `supabase/01_schema.sql` e `supabase/02_catalogo.sql`
-- Workflow para importar no n8n: `n8n/olden-agente-whatsapp.json`
-- Prompt do agente: `n8n/system-prompt.md`
+- **Guia atual:** [docs/ambiente-de-testes.md](docs/ambiente-de-testes.md): chat de demonstração, bateria de testes e variáveis do agente
+- Guia inicial (Supabase e primeira versão): [docs/guia-passo-a-passo.md](docs/guia-passo-a-passo.md)
+- Banco: `supabase/01_schema.sql`, `02_catalogo.sql`, `03_atualiza_body.sql`, `04_ambiente_testes.sql`
+- Workflows do n8n: `n8n/1-nucleo-agente.json`, `n8n/2-chat-demo.json`, `n8n/3-bateria-testes.json`
+- Prompt do agente: `n8n/system-prompt.md` (regere os workflows com `node n8n/build/gerar-workflows.js`)

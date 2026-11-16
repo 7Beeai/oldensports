@@ -1,5 +1,7 @@
 # Agente de atendimento Olden: guia passo a passo
 
+> **Versão inicial (Gemini, workflow único).** Os passos do Supabase (1 a 3) continuam valendo. Para a versão atual, com Claude Haiku 5.5 na OpenRouter, chat de demonstração e bateria de testes, siga [ambiente-de-testes.md](ambiente-de-testes.md).
+
 Objetivo: um agente que atende o cliente que chega querendo uma peça, tira dúvidas sobre outras, registra o pedido e, no final, pede uma avaliação de 1 a 5.
 
 Custo do teste: zero. Usa o plano Free do Supabase, a camada gratuita do Gemini e o chat de teste do próprio n8n.
