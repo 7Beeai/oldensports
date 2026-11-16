@@ -45,7 +45,7 @@ insert into produtos (sku, nome, categoria, publico, descricao, caracteristicas,
 ('BODY-AZ', 'Body Palmeiras Torcida Baby 2026 Jogo 3 Oficial', 'Body', 'Bebê',
  'Body infantil para os pequenos torcedores começarem desde cedo a demonstrar a paixão pelo Verdão. Confortável, prático e com visual inspirado no clube, ótimo para o dia a dia, passeios ou para presentear. Tecido leve, mangas curtas, gola em V, acabamento branco na parte inferior e fechamento por botões de pressão, que facilitam a troca do bebê. Na frente, o escudo em evidência acompanhado de detalhes especiais para a nova geração de torcedores.',
  'Gola V | fechamento inferior com botões de pressão | composição 100% poliéster | leve, confortável e prático para o dia a dia. Cuidados: por ter mais de uma cor, não deixar de molho, não usar alvejante e evitar excesso de sabão. Após lavar, centrifugar ou torcer bem antes de secar.',
- null,
+ 'Tamanho único, padrão para bebês de 9 meses',
  149.90, null, 142.41),
 
 ('BLOOK-BR', 'Camisa Palmeiras Baby Look 1914 Símbolo Branca - Feminina', 'Camisa', 'Feminino',
@@ -70,8 +70,10 @@ from (values
   ('TECH-VD','P',1),('TECH-VD','M',2),('TECH-VD','G',3),('TECH-VD','GG',4),
   ('VEST-OW','4',1),('VEST-OW','6',2),('VEST-OW','8',3),('VEST-OW','10',4),('VEST-OW','12',5),
   ('POLO-VD','P',1),('POLO-VD','M',2),('POLO-VD','G',3),('POLO-VD','GG',4),('POLO-VD','XGG',5),
-  -- BODY-AZ: tamanhos provisórios, confirme com a loja
-  ('BODY-AZ','P',1),('BODY-AZ','M',2),('BODY-AZ','G',3),
+  ('BODY-AZ','9 MESES',1),
   ('BLOOK-BR','P',1),('BLOOK-BR','M',2),('BLOOK-BR','G',3),('BLOOK-BR','GG',4)
 ) as v(sku, tamanho, ordem)
 on conflict (sku, tamanho) do update set quantidade = 8, ordem = excluded.ordem;
+
+-- Remove tamanhos provisórios antigos do Body, se existirem
+delete from estoque where sku = 'BODY-AZ' and tamanho <> '9 MESES';
