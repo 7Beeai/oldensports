@@ -139,12 +139,12 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C01', 'Compra direta no Pix com avaliação',
  '["Oi! Quero a camisa Palestra Celebration", "Tamanho G", "Vou pagar no Pix, meu nome é Ana Souza", "Isso, pode confirmar", "Nota 5, atendimento ótimo"]',
  '{"interesses_incluem": ["CEL-BR"], "pedidos_qtd": 1, "pedido": {"sku": "CEL-BR", "tamanho": "G", "quantidade": 1, "forma_pagamento": "pix"}, "avaliacao_nota": 5, "status_final": "encerrada"}',
- 'Informa R$ 169,90 no cartão e R$ 161,41 no Pix. Resume produto, tamanho, pagamento e nome e pede confirmação ANTES de registrar. Depois de registrar, avisa que a equipe envia o link de pagamento e pede nota de 1 a 5. Agradece a avaliação.'),
+ 'Na primeira resposta apresenta a camisa de forma curta, sem despejar preço e medidas. Quando o cliente escolhe o tamanho ou ao resumir, informa R$ 169,90 no cartão e R$ 161,41 no Pix. Como o cliente pediu um produto do Palmeiras, pode usar tom de torcida. Resume produto, tamanho, pagamento e nome e pede confirmação ANTES de registrar. Depois de registrar, avisa que a equipe envia o link de pagamento e pede nota de 1 a 5. Agradece a avaliação.'),
 
 ('C02', 'Compara duas peças sem comprar',
  '["Quero ver a polo verde do Abel", "E a Tech azul, qual a diferença de tecido entre elas?", "Obrigado, vou pensar"]',
  '{"interesses_incluem": ["POLO-VD", "TECH-AZ"], "pedidos_qtd": 0}',
- 'Polo Palestra Verde: 97% algodão e 3% elastano, gola polo com zíper, R$ 259,90. Tech Azul: 77% poliamida e 23% elastano, gola polo com botões, R$ 399,90. Compara corretamente e não pressiona o cliente quando ele diz que vai pensar.'),
+ 'Polo Palestra Verde: 97% algodão e 3% elastano, gola polo com zíper. Tech Azul: 77% poliamida e 23% elastano, gola polo com botões. Na primeira resposta apresenta a polo de forma curta, sem despejar preço e medidas. Compara os tecidos corretamente e não pressiona o cliente quando ele diz que vai pensar.'),
 
 ('C03', 'Quantidade maior que o estoque',
  '["Quero 20 camisas baby look tamanho M", "Ok, então quero 8, no cartão, meu nome é Carla", "Confirmo"]',
@@ -179,7 +179,7 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C09', 'Body para idade diferente',
  '["Tem body para bebê de 1 ano?"]',
  '{"interesses_incluem": ["BODY-AZ"], "pedidos_qtd": 0}',
- 'Explica que o body é tamanho único, padrão para 9 meses, sem prometer que serve em 1 ano. Preço R$ 149,90 no cartão ou R$ 142,41 no Pix.'),
+ 'Explica que o body é tamanho único, padrão para 9 meses, sem prometer que serve em 1 ano. Não precisa dar o preço, porque não foi perguntado. Tom neutro, já que o cliente não se mostrou palmeirense.'),
 
 ('C10', 'Dúvida sobre como usar o lenço',
  '["Como dá pra usar o lenço do Campeão do Brasil?"]',
@@ -209,7 +209,7 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C15', 'Tom de torcida na venda',
  '["Opa! Sou palmeirense roxo, quero um manto novo pra ir no estádio. O que vocês têm?"]',
  '{"pedidos_qtd": 0}',
- 'Tom alegre de torcida palmeirense, com 1 a 3 emojis verdes (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷) e alguma expressão como Verdão, Palestra ou Avanti. Apresenta opções reais do catálogo com preço correto. Não fala mal de rivais e não comenta jogos.'),
+ 'O cliente se disse palmeirense: tom alegre de torcida, com 1 a 3 emojis verdes (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷) e alguma expressão como Verdão, Palestra ou Avanti. Lista algumas opções reais do catálogo só com nome e meia frase, SEM preços e medidas, e pergunta qual chamou atenção. Não fala mal de rivais e não comenta jogos.'),
 
 ('C16', 'Veio pelas Gêmeas e pede cupom',
  '["Oi! Vim pelo story das Gêmeas All Star 💚 Elas falaram que tem cupom de desconto, qual é?"]',
@@ -219,7 +219,17 @@ insert into cenarios_teste (id, titulo, turnos, esperado, criterios_juiz) values
 ('C17', 'Cliente chateado com atraso',
  '["Estou muito chateado, meu pedido está atrasado há uma semana e ninguém me responde"]',
  '{"pedidos_qtd": 0}',
- 'Tom calmo, sério e empático, sem brincadeiras de torcida e sem emojis festivos (no máximo um 💚 no final). Pede desculpas pelo transtorno e diz que vai chamar alguém da equipe. Não promete prazo nem solução.')
+ 'Tom calmo, sério e empático, sem brincadeiras de torcida e sem emojis festivos (no máximo um 💚 no final). Pede desculpas pelo transtorno e diz que vai chamar alguém da equipe. Não promete prazo nem solução.'),
+
+('C18', 'Cliente neutro, sem sinal de torcida',
+ '["Oi, boa tarde! Queria ver umas roupas para dar de presente", "Pode ser algo mais casual"]',
+ '{"pedidos_qtd": 0}',
+ 'Tom NEUTRO em toda a conversa: simpático, sem gírias de torcida (Verdão, Porco, Avanti, manto) e sem emojis verdes ou de futebol (no máximo um 😊). Pergunta para quem é o presente ou o estilo. Sugere opções casuais do catálogo só com nome e meia frase, sem preços nem medidas.'),
+
+('C19', 'Começa neutro e vira torcida',
+ '["Oi, tudo bem?", "Sou palmeirense desde criança! Quero uma camisa pra usar no dia a dia"]',
+ '{"pedidos_qtd": 0}',
+ 'Turno 1: tom neutro, sem gírias de torcida nem emojis verdes. Turno 2: o cliente se disse palmeirense, então muda para tom de torcida, alegre, com 1 a 3 emojis verdes. Sugere opções do dia a dia (ex.: polos e camisas) só com nome e meia frase, sem despejar preços e medidas.')
 
 on conflict (id) do update set
   titulo = excluded.titulo, turnos = excluded.turnos, esperado = excluded.esperado,

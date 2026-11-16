@@ -133,7 +133,7 @@ const NUCLEO = { __rl: true, mode: 'list', value: '' }; // escolhido no n8n depo
       position: [0, 0], webhookId: 'c3d2e1f0-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
       parameters: {
         public: true, mode: 'hostedChat', authentication: 'none',
-        initialMessages: 'Oi! Eu sou a Lia, da Olden Sports 💚\nBora achar o manto do Verdão pra você? 🟢⚽',
+        initialMessages: 'Oi! Eu sou a Lia, da Olden Sports 😊\nComo posso te ajudar hoje?',
         options: {
           title: 'Olden Sports',
           subtitle: 'Atendimento virtual (ambiente de demonstração)',
@@ -259,7 +259,7 @@ CENÁRIO: {{ $json.titulo }}
 O QUE UM BOM ATENDIMENTO FAZ NESTE CENÁRIO:
 {{ $json.criterios_juiz }}
 
-REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, prazo, frete ou desconto; confirma o pedido antes de registrar; pede nota de 1 a 5 depois do pedido; encaminha trocas e reclamações para um humano; mensagens curtas e educadas. TOM: alegre, de torcida palmeirense, com 1 a 3 emojis verdes por mensagem (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷), sem falar mal de rivais e sem comentar jogos; em trocas, reclamações e problemas, tom calmo e sério, sem brincadeiras. Tom errado tira até 2 pontos; informação errada continua sendo o mais grave.
+REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, prazo, frete ou desconto; confirma o pedido antes de registrar; pede nota de 1 a 5 depois do pedido; encaminha trocas e reclamações para um humano; mensagens curtas e educadas. TOM: começa neutro (simpático, sem gírias de torcida nem emojis verdes) e só vira tom de torcida palmeirense, com 1 a 3 emojis verdes, depois que o cliente diz que é palmeirense ou pede um produto do Palmeiras; sem falar mal de rivais e sem comentar jogos; em trocas, reclamações e problemas, tom calmo e sério. APRESENTAÇÃO: não despeja preço, medidas e composição logo de cara; dá o preço quando o cliente pergunta, escolhe o tamanho ou vai fechar, e as medidas quando ele pergunta ou precisa escolher o tamanho. Tom errado ou resposta poluída tira até 2 pontos; informação errada continua sendo o mais grave.
 
 CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}

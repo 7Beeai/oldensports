@@ -238,33 +238,47 @@ O prompt ganhou uma seção **Fotos**. Para aplicar, faça uma das duas opções
 
 No chat de demonstração, a foto aparece dentro da conversa porque o chat do n8n entende Markdown (`![nome](link)`). O WhatsApp não entende Markdown: lá a foto precisa ser enviada como mídia, por uma chamada ao provedor (por exemplo, o envio de mídia da Evolution API). Quando o WhatsApp for conectado, o agente ganha uma ferramenta `enviar_foto` que manda a imagem pelo provedor, usando o mesmo `foto_url` do banco.
 
-## 9. Tom de torcida palmeirense
+## 9. Tom e apresentação dos produtos
 
-A Lia fala como uma amiga da arquibancada: alegre, com expressões de torcida (Verdão, Palestra, Avanti!) e de 1 a 3 emojis verdes por mensagem (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷). As regras ficam na seção **Tom: torcida palmeirense** de `n8n/system-prompt.md`.
+### Começa neutro, vira torcida com o sinal do cliente
 
-Limites que ela segue:
+Nem todo cliente é palmeirense, então a Lia começa **neutra**: simpática e profissional, sem gírias de torcida e sem emojis verdes (no máximo um 😊).
 
-- **Informação acima da animação:** preço, tamanho, total e confirmação do pedido sempre claros.
-- **Nada contra rivais**, e nenhum comentário sobre jogos, resultados ou jogadores (ela não tem essas informações atualizadas).
-- **Gêmeas All Star:** recebe com carinho quem vem por elas, mas nunca inventa cupom, brinde ou promoção.
-- **Momentos sérios** (troca, reclamação, atraso, pagamento): tom calmo, sem brincadeiras, no máximo um 💚.
+Ela passa para o **modo torcida** quando o cliente dá o sinal: diz que é palmeirense, fala com carinho do Palmeiras ou do Verdão, ou pede um produto do Palmeiras pelo nome ou pelo time. Uma pergunta genérica ("o que vocês vendem?") não conta. No modo torcida, ela usa expressões como Verdão, Palestra e Avanti, com 1 a 3 emojis por mensagem (💚 🟢 ✅ 🍀 🌳 ⚽ 🏆 🐷), e continua assim até o fim da conversa.
+
+Em qualquer modo:
+- não fala mal de rivais e não comenta jogos, resultados ou jogadores;
+- recebe com carinho quem vem pelas Gêmeas All Star, mas nunca inventa cupom, brinde ou promoção;
+- em trocas, reclamações, atrasos e problemas de pagamento, fala com calma, sem brincadeiras.
+
+### Apresentação enxuta
+
+A Lia dá a informação na hora em que o cliente precisa dela:
+
+| Momento | O que ela mostra |
+|---|---|
+| Apresentar um produto | Nome, meia frase com o destaque, foto (se houver) e uma pergunta |
+| Listar várias opções | Só nome e meia frase de cada uma, sem preços |
+| Cliente pergunta o preço, escolhe o tamanho ou vai fechar | Preço no cartão (com parcelamento) e no Pix |
+| Cliente pergunta medidas ou precisa escolher o tamanho | Medidas do catálogo |
+| Resumo antes de registrar o pedido | Tudo: produto, tamanho, quantidade, pagamento, nome e total |
 
 ### Aplicar no n8n
 
 1. No **Núcleo**, cole o conteúdo de `n8n/system-prompt.md` na **System Message** do nó **Agente Olden** e clique em **Publish**.
-2. No **Chat de demonstração**, abra o nó **Chat público** e troque **Initial Message(s)** por:
+2. No **Chat de demonstração**, abra o nó **Chat público** e troque **Initial Message(s)** pela saudação neutra. Salve e clique em **Publish**:
 
    ```
-   Oi! Eu sou a Lia, da Olden Sports 💚
-   Bora achar o manto do Verdão pra você? 🟢⚽
+   Oi! Eu sou a Lia, da Olden Sports 😊
+   Como posso te ajudar hoje?
    ```
 
-   Salve e clique em **Publish**.
-3. No Supabase, rode de novo o `supabase/04_ambiente_testes.sql`. Ele acrescenta 3 cenários de tom (C15 a C17) e ajusta o C07, sem apagar resultados anteriores.
+3. No Supabase, rode de novo o `supabase/04_ambiente_testes.sql`. Ele ajusta os cenários antigos para a apresentação enxuta e acrescenta os de tom (C15 a C19), sem apagar resultados anteriores.
+4. A regra de tom e de apresentação da IA avaliadora fica no workflow da bateria: importe de novo o `3-bateria-testes.json` num workflow vazio, religue o nó **Conversar com o agente** ao Núcleo e selecione as credenciais.
 
 ### Testar
 
-Na bateria, rode `cenarios: ['C07', 'C15', 'C16', 'C17']`. A IA avaliadora também passou a conferir o tom: tom errado tira até 2 pontos, informação errada continua sendo o mais grave. Essa regra fica no workflow da bateria: importe de novo o `3-bateria-testes.json` num workflow vazio, religue o nó **Conversar com o agente** ao Núcleo e selecione as credenciais.
+Na bateria, rode `cenarios: ['C01', 'C15', 'C18', 'C19']`. A avaliadora confere tom e apresentação: tom errado ou resposta poluída tiram até 2 pontos, e informação errada continua sendo o mais grave.
 
 ## Regerar os workflows
 
