@@ -8,7 +8,9 @@ const prompt = fs.readFileSync(path.join(dir, 'system-prompt.md'), 'utf8').trim(
 
 const PG = undefined; // credenciais são escolhidas no n8n depois de importar
 const GEMINI = undefined;
-const CONVERSA = "$('Contexto do atendimento').first().json.conversa_id";
+// Memória e ferramentas leem o id da conversa da entrada do Agente ($json),
+// sem referenciar outro nó: evita o erro "the node is unexecuted".
+const CONVERSA = '$json.conversa_id';
 
 const tool = (id, name, position, description, query, payload) => ({
   id, name, position,
@@ -45,8 +47,9 @@ const nodes = [
     alwaysOutputData: false,
     parameters: {
       operation: 'executeQuery',
-      query: 'select * from contexto_atendimento($1)',
-      options: { queryReplacement: "={{ $('Mensagem recebida').item.json.sessionId }}" },
+      // Devolve conversa, cliente, catálogo e a própria mensagem, para o Agente usar só $json
+      query: "select c.*, $1::jsonb->>'mensagem' as mensagem\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+      options: { queryReplacement: '={{ JSON.stringify({ sessao: $json.sessionId, mensagem: $json.chatInput }) }}' },
     },
   },
   {
@@ -57,7 +60,7 @@ const nodes = [
     position: [520, 0],
     parameters: {
       promptType: 'define',
-      text: "={{ $('Mensagem recebida').item.json.chatInput }}",
+      text: '={{ $json.mensagem }}',
       options: { systemMessage: '=' + prompt, maxIterations: 8 },
     },
   },

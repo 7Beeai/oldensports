@@ -91,12 +91,14 @@ Não há tela separada de variáveis. Elas são **expressões** que o n8n preenc
 
 | Variável | Onde aparece | De onde vem |
 |---|---|---|
-| `chatInput` | Campo **Prompt** do Agente | Texto que o cliente enviou |
+| `chatInput` → `mensagem` | Campo **Prompt** do Agente (`$json.mensagem`) | Texto que o cliente enviou |
 | `sessionId` | Nó **Contexto do atendimento** | Identifica o cliente (no WhatsApp será o telefone) |
-| `conversa_id` | Memória e as 3 ferramentas | Criada pelo Supabase; separa cada atendimento |
+| `conversa_id` | Memória e as 3 ferramentas (`$json.conversa_id`) | Criada pelo Supabase; separa cada atendimento |
 | `cliente_nome`, `status` | System Message do Agente | Supabase |
 | `catalogo` | System Message do Agente | Função `catalogo_texto()`: preço e estoque atualizados |
 | `$fromAI('sku')`, `$fromAI('nota')`… | Ferramentas | A IA preenche ao decidir usar a ferramenta |
+
+Tudo que o Agente usa vem do nó anterior (`$json`), sem referência a outros nós. Por isso, teste sempre pelo **Open chat**, que roda o fluxo inteiro, e não pelo botão **Execute step** de um nó isolado.
 
 Para mudar o comportamento, edite a **System Message** no nó **Agente Olden** (Options → System Message). Para mudar produtos, preços ou estoque, edite as tabelas `produtos` e `estoque` no **Table Editor** do Supabase. O agente lê os dados novos na próxima mensagem, sem mexer no n8n.
 
