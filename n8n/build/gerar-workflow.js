@@ -61,6 +61,7 @@ const nodes = [
     parameters: {
       promptType: 'define',
       text: '={{ $json.mensagem }}',
+      needsFallback: true,
       options: { systemMessage: '=' + prompt, maxIterations: 8 },
     },
   },
@@ -72,6 +73,20 @@ const nodes = [
     position: [300, 260],
     credentials: GEMINI,
     parameters: {
+      // Flash-Lite costuma estar menos sobrecarregado na camada gratuita
+      modelName: 'models/gemini-flash-lite-latest',
+      options: { temperature: 0.4, maxOutputTokens: 1024 },
+    },
+  },
+  {
+    id: 'a1000000-0000-4000-8000-000000000009',
+    name: 'Gemini reserva',
+    type: '@n8n/n8n-nodes-langchain.lmChatGoogleGemini',
+    typeVersion: 1,
+    position: [140, 260],
+    credentials: GEMINI,
+    parameters: {
+      // Usado automaticamente se o modelo principal falhar
       modelName: 'models/gemini-flash-latest',
       options: { temperature: 0.4, maxOutputTokens: 1024 },
     },
@@ -109,6 +124,7 @@ const connections = {
   'Mensagem recebida': { main: [[{ node: 'Contexto do atendimento', type: 'main', index: 0 }]] },
   'Contexto do atendimento': { main: [[{ node: 'Agente Olden', type: 'main', index: 0 }]] },
   'Google Gemini': { ai_languageModel: [[ai('ai_languageModel')('Agente Olden')]] },
+  'Gemini reserva': { ai_languageModel: [[{ node: 'Agente Olden', type: 'ai_languageModel', index: 1 }]] },
   'Memória da conversa': { ai_memory: [[ai('ai_memory')('Agente Olden')]] },
   registrar_interesse: { ai_tool: [[ai('ai_tool')('Agente Olden')]] },
   registrar_pedido: { ai_tool: [[ai('ai_tool')('Agente Olden')]] },
@@ -119,7 +135,7 @@ const workflow = {
   name: 'Olden - Agente de atendimento (teste)',
   nodes,
   connections,
-  settings: { executionOrder: 'v1' },
+  settings: { executionOrder: 'v1', executionTimeout: 180 },
   pinData: {},
 };
 

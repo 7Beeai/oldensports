@@ -82,7 +82,7 @@ No n8n, vá em **Credentials → Add credential** (ou **Overview → Create → 
 3. Os nós de banco e de modelo vão aparecer com alerta de credencial. Abra cada um e selecione a credencial:
    - **Contexto do atendimento**, **Memória da conversa**, **registrar_interesse**, **registrar_pedido** e **registrar_avaliacao**: `Supabase Postgres`.
    - **Google Gemini**: `Google Gemini`.
-4. No nó **Google Gemini**, confira o modelo. O workflow usa `gemini-flash-latest`, que sempre aponta para o Flash mais recente. Se o seu n8n não aceitar, escolha na lista qualquer modelo **Flash**.
+4. Selecione a credencial do Gemini também no nó **Gemini reserva**. O modelo principal é o `gemini-flash-lite-latest`; se o Google responder 503 (modelo sobrecarregado), o Agente passa sozinho para o reserva, `gemini-flash-latest`. O workflow tem limite de 3 minutos por execução. Se algum modelo não aparecer no seu n8n, escolha outro **Flash** da lista.
 5. Clique em **Save**.
 
 ### Onde ficam as variáveis do agente
