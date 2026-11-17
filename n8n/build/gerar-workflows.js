@@ -64,7 +64,8 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
           assignments: [
             // Vazio quando o Núcleo é executado sozinho (botão Execute): usa uma sessão de teste
             ['sessao', 'string', "={{ $json.sessao || 'teste:manual' }}"],
-            ['mensagem', 'string', "={{ $json.mensagem || 'Oi, quero conhecer as camisas' }}"],
+            // Avisos internos ([AVISO INTERNO]) só valem quando vêm do sistema; se o cliente digitar, é removido
+            ['mensagem', 'string', "={{ ($json.origem === 'sistema' ? $json.mensagem : String($json.mensagem || '').replace(/\\[\\s*AVISO INTERNO\\s*\\]/gi, '').trim()) || 'Oi, quero conhecer as camisas' }}"],
             ['modelo', 'string', `={{ $json.modelo || '${PADRAO.modelo}' }}`],
             ['esforco', 'string', `={{ $json.esforco || '${PADRAO.esforco}' }}`],
             ['janela', 'number', `={{ Number($json.janela) || ${PADRAO.janela} }}`],
@@ -90,7 +91,7 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       },
     },
     pg('Simular pagamento', [440, -200],
-      "select simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as output",
+      "select $1::jsonb->>'sessao' as sessao,\n       simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as mensagem,\n       $1::jsonb->>'modelo' as modelo, $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela",
       '={{ JSON.stringify($json) }}'),
     pg('Contexto do atendimento', [440, 0],
       "select c.*, $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
@@ -132,6 +133,7 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
     Entrada: main('Configuração'),
     'Configuração': main('Comando de teste?'),
     'Comando de teste?': main('Simular pagamento', 'Contexto do atendimento'),
+    'Simular pagamento': main('Contexto do atendimento'),
     'Contexto do atendimento': main('Agente Olden'),
     'Claude via OpenRouter': { ai_languageModel: [[conn('Agente Olden', 'ai_languageModel')]] },
     'Memória da conversa': { ai_memory: [[conn('Agente Olden', 'ai_memory')]] },
@@ -152,7 +154,18 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
 const NUCLEO = { __rl: true, mode: 'list', value: '' }; // escolhido no n8n depois de importar
 {
   seq = 100;
+  // Página de chat própria: mostra também as mensagens que a Lia manda sozinha
+  const CHAT_HTML = fs.readFileSync(path.join(__dirname, 'chat-pagina.html'), 'utf8');
+  const responderJson = (name, position, body) => ({
+    id: id(), name, type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position,
+    parameters: {
+      respondWith: 'text', responseBody: body,
+      options: { responseHeaders: { entries: [{ name: 'Content-Type', value: 'application/json; charset=utf-8' }, { name: 'Cache-Control', value: 'no-store' }] } },
+    },
+  });
   const nodes = [
+    // Chat embutido do n8n: bom para testes rápidos no editor (Open chat).
+    // Ele NÃO mostra as mensagens que a Lia manda sozinha; para isso use a página "olden-chat".
     {
       id: id(), name: 'Chat público', type: '@n8n/n8n-nodes-langchain.chatTrigger', typeVersion: 1.1,
       position: [0, 0], webhookId: 'c3d2e1f0-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
@@ -185,10 +198,68 @@ const NUCLEO = { __rl: true, mode: 'list', value: '' }; // escolhido no n8n depo
       position: [480, 0],
       parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
     },
+
+    // Página de chat da Olden
+    {
+      id: id(), name: 'Página do chat', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 260],
+      webhookId: 'a7b8c9d0-4e5f-4a6b-9c23-d4e5f6a7b8c9',
+      parameters: { httpMethod: 'GET', path: 'olden-chat', responseMode: 'responseNode', options: {} },
+    },
+    {
+      id: id(), name: 'Responder página', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [240, 260],
+      parameters: {
+        respondWith: 'text', responseBody: CHAT_HTML,
+        options: { responseHeaders: { entries: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }] } },
+      },
+    },
+
+    {
+      id: id(), name: 'Mensagem da página', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 460],
+      webhookId: 'b8c9d0e1-5f6a-4b7c-8d34-e5f6a7b8c9d0',
+      parameters: { httpMethod: 'POST', path: 'olden-chat-enviar', responseMode: 'responseNode', options: {} },
+    },
+    {
+      id: id(), name: 'Preparar mensagem da página', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [240, 460],
+      parameters: {
+        mode: 'manual',
+        assignments: {
+          assignments: [
+            { id: 'w-0', name: 'sessao', type: 'string', value: "={{ 'demo:' + String($json.body.sessao || 'sem-sessao').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64) }}" },
+            { id: 'w-1', name: 'mensagem', type: 'string', value: "={{ String($json.body.mensagem || '').slice(0, 2000) }}" },
+          ],
+        },
+        options: {},
+      },
+    },
+    {
+      id: id(), name: 'Chamar núcleo (página)', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2,
+      position: [480, 460],
+      parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
+    },
+    responderJson('Responder mensagem', [720, 460], '={{ JSON.stringify({ resposta: $json.output }) }}'),
+
+    {
+      id: id(), name: 'Buscar mensagens novas', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 660],
+      webhookId: 'c9d0e1f2-6a7b-4c8d-9e45-f6a7b8c9d0e1',
+      parameters: { httpMethod: 'GET', path: 'olden-chat-novas', responseMode: 'responseNode', options: {} },
+    },
+    pg('Mensagens da Lia', [240, 660],
+      "select coalesce(jsonb_agg(jsonb_build_object('id', id, 'texto', texto) order by id), '[]'::jsonb) as mensagens\nfrom mensagens_saida\nwhere sessao = $1::jsonb->>'sessao' and id > ($1::jsonb->>'depois')::bigint",
+      "={{ JSON.stringify({ sessao: 'demo:' + String($json.query.s || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64), depois: String(parseInt($json.query.depois, 10) || 0) }) }}"),
+    responderJson('Responder novas', [480, 660], '={{ JSON.stringify({ mensagens: $json.mensagens }) }}'),
   ];
   save('2-chat-demo.json', {
     name: 'Olden | 2. Chat de demonstração', nodes, pinData: {},
-    connections: { 'Chat público': main('Preparar mensagem'), 'Preparar mensagem': main('Chamar núcleo do agente') },
+    connections: {
+      'Chat público': main('Preparar mensagem'),
+      'Preparar mensagem': main('Chamar núcleo do agente'),
+      'Página do chat': main('Responder página'),
+      'Mensagem da página': main('Preparar mensagem da página'),
+      'Preparar mensagem da página': main('Chamar núcleo (página)'),
+      'Chamar núcleo (página)': main('Responder mensagem'),
+      'Buscar mensagens novas': main('Mensagens da Lia'),
+      'Mensagens da Lia': main('Responder novas'),
+    },
     settings: { executionOrder: 'v1', executionTimeout: 300 },
   });
 }
@@ -300,7 +371,7 @@ REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, p
 CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}
 
-Turnos em que o CLIENTE escreve algo começando com "#pagamento_" não são falas do cliente: são o sistema de teste simulando o pagamento. Ignore esses turnos ao avaliar.
+Turnos em que o CLIENTE aparece como "#pagamento_aprovado" ou "#pagamento_recusado" não são falas do cliente: é o sistema da loja avisando o agente sobre o pagamento. A resposta do AGENTE nesses turnos é uma mensagem que ele mandou ao cliente por iniciativa própria; avalie se ela avisa corretamente o que aconteceu.
 
 LINKS E CÓDIGOS: o link de pagamento e o código de rastreio (formato OLD-TESTE-000000) são fictícios e corretos de usar. O agente nunca pode inventar um código de rastreio, confirmar um pagamento que não consta como aprovado no banco, nem inventar prazo de entrega.
 
@@ -402,7 +473,7 @@ let corpo;
 if (!p.token) {
   corpo = '<div class="card"><p>Link de pagamento não encontrado.</p></div>';
 } else if (p.status === 'pago') {
-  corpo = '<div class="card"><p>Este pedido já foi pago ✅</p><p>Código de rastreio:</p><p class="codigo">' + esc(p.codigo_rastreio) + '</p><p><a href="olden-rastreio?c=' + encodeURIComponent(p.codigo_rastreio) + '">Acompanhar entrega</a></p></div>';
+  corpo = '<div class="card"><p>Este pedido já foi pago ✅</p><p>Os detalhes da entrega foram enviados na conversa.</p></div>';
 } else {
   corpo = '<div class="card"><p>Olá' + (p.nome ? ', ' + esc(p.nome) : '') + '! Confira seu pedido:</p><ul>' + (p.itens || []).map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul><p class="total">' + esc(p.valor) + '</p></div>'
     + (p.status === 'recusado' ? '<div class="card"><p>O último pagamento deste link foi recusado. Peça um novo link no chat.</p></div>' : '')
@@ -416,8 +487,8 @@ return [{ json: { html: pagina('Pagamento', corpo) } }];`;
 const r = $json.res || {};
 let corpo;
 if (!r.ok) corpo = '<div class="card"><p>' + esc(r.mensagem || 'Não foi possível processar.') + '</p></div>';
-else if (r.status === 'pago') corpo = '<div class="card"><p><strong>Pagamento aprovado (simulação) ✅</strong></p><p>Valor: ' + esc(r.valor) + '</p><p>Código de rastreio:</p><p class="codigo">' + esc(r.codigo_rastreio) + '</p><p><a href="olden-rastreio?c=' + encodeURIComponent(r.codigo_rastreio) + '">Acompanhar entrega</a></p></div><div class="card"><p>Volte para a conversa e avise a Lia que pagou.</p></div>';
-else corpo = '<div class="card"><p><strong>Pagamento recusado (simulação)</strong></p><p>Volte para a conversa e avise a Lia: ela gera um novo link.</p></div>';
+else if (r.status === 'pago') corpo = '<div class="card"><p><strong>Pagamento aprovado (simulação) ✅</strong></p><p>Valor: ' + esc(r.valor) + '</p><p>Pode fechar esta página. A Lia vai te mandar os detalhes da entrega na conversa.</p></div>';
+else corpo = '<div class="card"><p><strong>Pagamento recusado (simulação)</strong></p><p>Pode fechar esta página. A Lia vai te chamar na conversa para resolver.</p></div>';
 return [{ json: { html: pagina('Pagamento', corpo) } }];`;
 
   const HTML_RASTREIO = `${PAGINA}
@@ -456,6 +527,41 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
       '={{ JSON.stringify({ t: $json.body.t, r: $json.body.r }) }}'),
     code('Montar confirmação', [440, 220], HTML_CONFIRMACAO),
     responder('Responder confirmação', [660, 220]),
+    {
+      id: id(), name: 'Tem aviso para a Lia?', type: 'n8n-nodes-base.if', typeVersion: 2.2, position: [880, 220],
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+          conditions: [{
+            id: 'aviso-0', leftValue: "={{ !!($('Aprovar ou recusar').first().json.res || {}).aviso }}",
+            rightValue: '', operator: { type: 'boolean', operation: 'true', singleValue: true },
+          }],
+          combinator: 'and',
+        },
+        options: {},
+      },
+    },
+    {
+      id: id(), name: 'Montar aviso', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [1100, 220],
+      parameters: {
+        mode: 'manual',
+        assignments: { assignments: [
+          { id: 'av-0', name: 'sessao', type: 'string', value: "={{ $('Aprovar ou recusar').first().json.res.sessao }}" },
+          { id: 'av-1', name: 'mensagem', type: 'string', value: "={{ $('Aprovar ou recusar').first().json.res.aviso }}" },
+          { id: 'av-2', name: 'origem', type: 'string', value: 'sistema' },
+        ] },
+        options: {},
+      },
+    },
+    {
+      id: id(), name: 'Lia escreve ao cliente', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2,
+      position: [1320, 220],
+      parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
+    },
+    pg('Guardar mensagem para o cliente', [1540, 220],
+      "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+      "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output }) }}"),
+    // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
 
     webhook('Rastreio', [0, 440], 'olden-rastreio', 'GET', 'f6a7b8c9-3d4e-4f5a-8b12-c3d4e5f6a7b8'),
     pg('Buscar etapas', [220, 440],
@@ -471,6 +577,10 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
     'Confirmar pagamento': main('Aprovar ou recusar'),
     'Aprovar ou recusar': main('Montar confirmação'),
     'Montar confirmação': main('Responder confirmação'),
+    'Responder confirmação': main('Tem aviso para a Lia?'),
+    'Tem aviso para a Lia?': main('Montar aviso'),
+    'Montar aviso': main('Lia escreve ao cliente'),
+    'Lia escreve ao cliente': main('Guardar mensagem para o cliente'),
     Rastreio: main('Buscar etapas'),
     'Buscar etapas': main('Montar rastreio'),
     'Montar rastreio': main('Responder rastreio'),

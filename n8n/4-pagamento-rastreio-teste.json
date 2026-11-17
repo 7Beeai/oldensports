@@ -46,7 +46,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst pagina = (titulo, corpo) => '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>' + esc(titulo) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f5f4;color:#14231b}.topo{background:#0b6b3a;color:#fff;padding:20px 16px}.topo h1{margin:0;font-size:22px}.topo p{margin:4px 0 0;opacity:.85;font-size:14px}.aviso{background:#fff4d6;color:#6b4e00;border-bottom:1px solid #f0d58a;padding:10px 16px;font-size:14px;font-weight:600}main{max-width:480px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}.total{font-size:26px;font-weight:700;margin:8px 0 0}ul{padding-left:18px;margin:8px 0}li{margin:4px 0}button{width:100%;border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}.ok{background:#0b6b3a;color:#fff}.nao{background:#fff;color:#a12a2a;border:1px solid #e3b5b5}.codigo{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:1px}.etapa{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eef1ef}.etapa:last-child{border:0}.bola{width:14px;height:14px;border-radius:50%;margin-top:3px;flex:none;background:#cfd8d3}.feita .bola{background:#0b6b3a}.pendente{color:#8a958f}.quando{font-size:13px;color:#5b6b62}</style></head><body><div class=\"topo\"><h1>Olden Sports</h1><p>' + esc(titulo) + '</p></div><div class=\"aviso\">AMBIENTE DE TESTE: nenhum valor é cobrado e nenhum produto é enviado.</div><main>' + corpo + '</main></body></html>';\nconst p = $json;\nlet corpo;\nif (!p.token) {\n  corpo = '<div class=\"card\"><p>Link de pagamento não encontrado.</p></div>';\n} else if (p.status === 'pago') {\n  corpo = '<div class=\"card\"><p>Este pedido já foi pago ✅</p><p>Código de rastreio:</p><p class=\"codigo\">' + esc(p.codigo_rastreio) + '</p><p><a href=\"olden-rastreio?c=' + encodeURIComponent(p.codigo_rastreio) + '\">Acompanhar entrega</a></p></div>';\n} else {\n  corpo = '<div class=\"card\"><p>Olá' + (p.nome ? ', ' + esc(p.nome) : '') + '! Confira seu pedido:</p><ul>' + (p.itens || []).map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul><p class=\"total\">' + esc(p.valor) + '</p></div>'\n    + (p.status === 'recusado' ? '<div class=\"card\"><p>O último pagamento deste link foi recusado. Peça um novo link no chat.</p></div>' : '')\n    + '<div class=\"card\"><p>Escolha o resultado da simulação:</p>'\n    + '<form method=\"post\" action=\"olden-pagamento-confirmar\"><input type=\"hidden\" name=\"t\" value=\"' + esc(p.token) + '\"><input type=\"hidden\" name=\"r\" value=\"aprovado\"><button class=\"ok\">Simular pagamento aprovado</button></form>'\n    + '<form method=\"post\" action=\"olden-pagamento-confirmar\"><input type=\"hidden\" name=\"t\" value=\"' + esc(p.token) + '\"><input type=\"hidden\" name=\"r\" value=\"recusado\"><button class=\"nao\">Simular pagamento recusado</button></form></div>';\n}\nreturn [{ json: { html: pagina('Pagamento', corpo) } }];"
+        "jsCode": "const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst pagina = (titulo, corpo) => '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>' + esc(titulo) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f5f4;color:#14231b}.topo{background:#0b6b3a;color:#fff;padding:20px 16px}.topo h1{margin:0;font-size:22px}.topo p{margin:4px 0 0;opacity:.85;font-size:14px}.aviso{background:#fff4d6;color:#6b4e00;border-bottom:1px solid #f0d58a;padding:10px 16px;font-size:14px;font-weight:600}main{max-width:480px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}.total{font-size:26px;font-weight:700;margin:8px 0 0}ul{padding-left:18px;margin:8px 0}li{margin:4px 0}button{width:100%;border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}.ok{background:#0b6b3a;color:#fff}.nao{background:#fff;color:#a12a2a;border:1px solid #e3b5b5}.codigo{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:1px}.etapa{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eef1ef}.etapa:last-child{border:0}.bola{width:14px;height:14px;border-radius:50%;margin-top:3px;flex:none;background:#cfd8d3}.feita .bola{background:#0b6b3a}.pendente{color:#8a958f}.quando{font-size:13px;color:#5b6b62}</style></head><body><div class=\"topo\"><h1>Olden Sports</h1><p>' + esc(titulo) + '</p></div><div class=\"aviso\">AMBIENTE DE TESTE: nenhum valor é cobrado e nenhum produto é enviado.</div><main>' + corpo + '</main></body></html>';\nconst p = $json;\nlet corpo;\nif (!p.token) {\n  corpo = '<div class=\"card\"><p>Link de pagamento não encontrado.</p></div>';\n} else if (p.status === 'pago') {\n  corpo = '<div class=\"card\"><p>Este pedido já foi pago ✅</p><p>Os detalhes da entrega foram enviados na conversa.</p></div>';\n} else {\n  corpo = '<div class=\"card\"><p>Olá' + (p.nome ? ', ' + esc(p.nome) : '') + '! Confira seu pedido:</p><ul>' + (p.itens || []).map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul><p class=\"total\">' + esc(p.valor) + '</p></div>'\n    + (p.status === 'recusado' ? '<div class=\"card\"><p>O último pagamento deste link foi recusado. Peça um novo link no chat.</p></div>' : '')\n    + '<div class=\"card\"><p>Escolha o resultado da simulação:</p>'\n    + '<form method=\"post\" action=\"olden-pagamento-confirmar\"><input type=\"hidden\" name=\"t\" value=\"' + esc(p.token) + '\"><input type=\"hidden\" name=\"r\" value=\"aprovado\"><button class=\"ok\">Simular pagamento aprovado</button></form>'\n    + '<form method=\"post\" action=\"olden-pagamento-confirmar\"><input type=\"hidden\" name=\"t\" value=\"' + esc(p.token) + '\"><input type=\"hidden\" name=\"r\" value=\"recusado\"><button class=\"nao\">Simular pagamento recusado</button></form></div>';\n}\nreturn [{ json: { html: pagina('Pagamento', corpo) } }];"
       }
     },
     {
@@ -117,7 +117,7 @@
         220
       ],
       "parameters": {
-        "jsCode": "const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst pagina = (titulo, corpo) => '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>' + esc(titulo) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f5f4;color:#14231b}.topo{background:#0b6b3a;color:#fff;padding:20px 16px}.topo h1{margin:0;font-size:22px}.topo p{margin:4px 0 0;opacity:.85;font-size:14px}.aviso{background:#fff4d6;color:#6b4e00;border-bottom:1px solid #f0d58a;padding:10px 16px;font-size:14px;font-weight:600}main{max-width:480px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}.total{font-size:26px;font-weight:700;margin:8px 0 0}ul{padding-left:18px;margin:8px 0}li{margin:4px 0}button{width:100%;border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}.ok{background:#0b6b3a;color:#fff}.nao{background:#fff;color:#a12a2a;border:1px solid #e3b5b5}.codigo{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:1px}.etapa{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eef1ef}.etapa:last-child{border:0}.bola{width:14px;height:14px;border-radius:50%;margin-top:3px;flex:none;background:#cfd8d3}.feita .bola{background:#0b6b3a}.pendente{color:#8a958f}.quando{font-size:13px;color:#5b6b62}</style></head><body><div class=\"topo\"><h1>Olden Sports</h1><p>' + esc(titulo) + '</p></div><div class=\"aviso\">AMBIENTE DE TESTE: nenhum valor é cobrado e nenhum produto é enviado.</div><main>' + corpo + '</main></body></html>';\nconst r = $json.res || {};\nlet corpo;\nif (!r.ok) corpo = '<div class=\"card\"><p>' + esc(r.mensagem || 'Não foi possível processar.') + '</p></div>';\nelse if (r.status === 'pago') corpo = '<div class=\"card\"><p><strong>Pagamento aprovado (simulação) ✅</strong></p><p>Valor: ' + esc(r.valor) + '</p><p>Código de rastreio:</p><p class=\"codigo\">' + esc(r.codigo_rastreio) + '</p><p><a href=\"olden-rastreio?c=' + encodeURIComponent(r.codigo_rastreio) + '\">Acompanhar entrega</a></p></div><div class=\"card\"><p>Volte para a conversa e avise a Lia que pagou.</p></div>';\nelse corpo = '<div class=\"card\"><p><strong>Pagamento recusado (simulação)</strong></p><p>Volte para a conversa e avise a Lia: ela gera um novo link.</p></div>';\nreturn [{ json: { html: pagina('Pagamento', corpo) } }];"
+        "jsCode": "const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst pagina = (titulo, corpo) => '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>' + esc(titulo) + '</title><style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f5f4;color:#14231b}.topo{background:#0b6b3a;color:#fff;padding:20px 16px}.topo h1{margin:0;font-size:22px}.topo p{margin:4px 0 0;opacity:.85;font-size:14px}.aviso{background:#fff4d6;color:#6b4e00;border-bottom:1px solid #f0d58a;padding:10px 16px;font-size:14px;font-weight:600}main{max-width:480px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}.total{font-size:26px;font-weight:700;margin:8px 0 0}ul{padding-left:18px;margin:8px 0}li{margin:4px 0}button{width:100%;border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}.ok{background:#0b6b3a;color:#fff}.nao{background:#fff;color:#a12a2a;border:1px solid #e3b5b5}.codigo{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:1px}.etapa{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eef1ef}.etapa:last-child{border:0}.bola{width:14px;height:14px;border-radius:50%;margin-top:3px;flex:none;background:#cfd8d3}.feita .bola{background:#0b6b3a}.pendente{color:#8a958f}.quando{font-size:13px;color:#5b6b62}</style></head><body><div class=\"topo\"><h1>Olden Sports</h1><p>' + esc(titulo) + '</p></div><div class=\"aviso\">AMBIENTE DE TESTE: nenhum valor é cobrado e nenhum produto é enviado.</div><main>' + corpo + '</main></body></html>';\nconst r = $json.res || {};\nlet corpo;\nif (!r.ok) corpo = '<div class=\"card\"><p>' + esc(r.mensagem || 'Não foi possível processar.') + '</p></div>';\nelse if (r.status === 'pago') corpo = '<div class=\"card\"><p><strong>Pagamento aprovado (simulação) ✅</strong></p><p>Valor: ' + esc(r.valor) + '</p><p>Pode fechar esta página. A Lia vai te mandar os detalhes da entrega na conversa.</p></div>';\nelse corpo = '<div class=\"card\"><p><strong>Pagamento recusado (simulação)</strong></p><p>Pode fechar esta página. A Lia vai te chamar na conversa para resolver.</p></div>';\nreturn [{ json: { html: pagina('Pagamento', corpo) } }];"
       }
     },
     {
@@ -146,6 +146,115 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000309",
+      "name": "Tem aviso para a Lia?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aviso-0",
+              "leftValue": "={{ !!($('Aprovar ou recusar').first().json.res || {}).aviso }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000310",
+      "name": "Montar aviso",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "av-0",
+              "name": "sessao",
+              "type": "string",
+              "value": "={{ $('Aprovar ou recusar').first().json.res.sessao }}"
+            },
+            {
+              "id": "av-1",
+              "name": "mensagem",
+              "type": "string",
+              "value": "={{ $('Aprovar ou recusar').first().json.res.aviso }}"
+            },
+            {
+              "id": "av-2",
+              "name": "origem",
+              "type": "string",
+              "value": "sistema"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000311",
+      "name": "Lia escreve ao cliente",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1320,
+        220
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000312",
+      "name": "Guardar mensagem para o cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1540,
+        220
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000313",
       "name": "Rastreio",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -162,7 +271,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000310",
+      "id": "b2000000-0000-4000-8000-000000000314",
       "name": "Buscar etapas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -180,7 +289,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000311",
+      "id": "b2000000-0000-4000-8000-000000000315",
       "name": "Montar rastreio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -193,7 +302,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000312",
+      "id": "b2000000-0000-4000-8000-000000000316",
       "name": "Responder rastreio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -278,6 +387,50 @@
         [
           {
             "node": "Responder confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder confirmação": {
+      "main": [
+        [
+          {
+            "node": "Tem aviso para a Lia?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem aviso para a Lia?": {
+      "main": [
+        [
+          {
+            "node": "Montar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar aviso": {
+      "main": [
+        [
+          {
+            "node": "Lia escreve ao cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lia escreve ao cliente": {
+      "main": [
+        [
+          {
+            "node": "Guardar mensagem para o cliente",
             "type": "main",
             "index": 0
           }

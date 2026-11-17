@@ -75,6 +75,206 @@
           "waitForSubWorkflow": true
         }
       }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000104",
+      "name": "Página do chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        260
+      ],
+      "webhookId": "a7b8c9d0-4e5f-4a6b-9c23-d4e5f6a7b8c9",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "olden-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000105",
+      "name": "Responder página",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        260
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\">\n<title>Olden Sports</title>\n<style>\n*{box-sizing:border-box}\nhtml,body{height:100%;margin:0}\nbody{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#e9efe9;color:#14231b;display:flex;flex-direction:column}\nheader{background:#0b6b3a;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}\n.avatar{width:40px;height:40px;border-radius:50%;background:#fff;color:#0b6b3a;display:flex;align-items:center;justify-content:center;font-weight:700}\nheader h1{font-size:17px;margin:0}header p{font-size:13px;margin:2px 0 0;opacity:.85}\nheader button{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.6);color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}\n.aviso{background:#fff4d6;color:#6b4e00;font-size:12px;padding:6px 16px;text-align:center}\n#msgs{flex:1;overflow-y:auto;padding:12px 12px 4px;display:flex;flex-direction:column;gap:6px}\n.m{max-width:82%;padding:8px 12px;border-radius:12px;line-height:1.4;font-size:15px;white-space:normal;word-wrap:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08)}\n.lia{background:#fff;align-self:flex-start;border-top-left-radius:4px}\n.eu{background:#d4f5d0;align-self:flex-end;border-top-right-radius:4px}\n.m img{max-width:100%;border-radius:8px;margin:6px 0;display:block}\n.m a{color:#0b6b3a;word-break:break-all}\n.digitando{font-size:13px;color:#5b6b62;padding:0 16px 6px;min-height:20px}\nform{display:flex;gap:8px;padding:8px;background:#f3f5f4;border-top:1px solid #dde4df}\ninput{flex:1;border:1px solid #cfd8d3;border-radius:20px;padding:10px 14px;font-size:16px;outline:none}\nform button{background:#0b6b3a;color:#fff;border:0;border-radius:20px;padding:0 18px;font-size:15px;font-weight:600;cursor:pointer}\nform button:disabled{opacity:.5}\n</style>\n</head>\n<body>\n<header>\n  <div class=\"avatar\">L</div>\n  <div><h1>Lia · Olden Sports</h1><p>Atendimento</p></div>\n  <button id=\"nova\" type=\"button\">Nova conversa</button>\n</header>\n<div class=\"aviso\">Ambiente de demonstração</div>\n<div id=\"msgs\"></div>\n<div class=\"digitando\" id=\"digitando\"></div>\n<form id=\"f\"><input id=\"t\" autocomplete=\"off\" placeholder=\"Digite sua mensagem...\"><button id=\"b\">Enviar</button></form>\n<script>\n(function () {\n  var BOAS_VINDAS = 'Oi! Aqui é a Lia, da Olden Sports 😊\\nO que você está procurando hoje?';\n  var guardar = {\n    ler: function (k, padrao) { try { var v = localStorage.getItem(k); return v === null ? padrao : JSON.parse(v); } catch (e) { return padrao; } },\n    gravar: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }\n  };\n  function novoId() { return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)).replace(/[^a-zA-Z0-9-]/g, ''); }\n  var estado = guardar.ler('olden_chat', null);\n  if (!estado || !estado.sessao) estado = { sessao: novoId(), ultimo: 0, msgs: [{ de: 'lia', texto: BOAS_VINDAS }] };\n  var caixa = document.getElementById('msgs'), digitando = document.getElementById('digitando');\n  var form = document.getElementById('f'), input = document.getElementById('t'), botao = document.getElementById('b');\n\n  function esc(s) { return String(s).replace(/[&<>\"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]; }); }\n  function formatar(texto) {\n    var h = esc(texto);\n    h = h.replace(/!\\[([^\\]]*)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<img alt=\"$1\" src=\"$2\">');\n    h = h.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<a href=\"$2\" target=\"_blank\" rel=\"noopener\">$1</a>');\n    h = h.replace(/(^|[\\s(])(https?:\\/\\/[^\\s<)]+)/g, '$1<a href=\"$2\" target=\"_blank\" rel=\"noopener\">$2</a>');\n    h = h.replace(/\\*\\*([^*]+)\\*\\*/g, '<b>$1</b>');\n    return h.replace(/\\n/g, '<br>');\n  }\n  function mostrar(m) {\n    var d = document.createElement('div');\n    d.className = 'm ' + (m.de === 'eu' ? 'eu' : 'lia');\n    d.innerHTML = formatar(m.texto);\n    caixa.appendChild(d);\n    caixa.scrollTop = caixa.scrollHeight;\n  }\n  function adicionar(m) { estado.msgs.push(m); guardar.gravar('olden_chat', estado); mostrar(m); }\n  estado.msgs.forEach(mostrar);\n\n  form.addEventListener('submit', function (ev) {\n    ev.preventDefault();\n    var texto = input.value.trim();\n    if (!texto) return;\n    input.value = ''; adicionar({ de: 'eu', texto: texto });\n    botao.disabled = true; digitando.textContent = 'Lia está digitando...';\n    fetch('olden-chat-enviar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessao: estado.sessao, mensagem: texto }) })\n      .then(function (r) { return r.json(); })\n      .then(function (j) { adicionar({ de: 'lia', texto: j.resposta || 'Desculpa, tive um probleminha aqui. Pode repetir?' }); })\n      .catch(function () { adicionar({ de: 'lia', texto: 'Desculpa, tive um probleminha aqui. Pode repetir?' }); })\n      .then(function () { botao.disabled = false; digitando.textContent = ''; input.focus(); });\n  });\n\n  // Mensagens que a Lia manda por iniciativa própria (ex.: pagamento aprovado)\n  function buscarNovas() {\n    fetch('olden-chat-novas?s=' + encodeURIComponent(estado.sessao) + '&depois=' + estado.ultimo)\n      .then(function (r) { return r.json(); })\n      .then(function (j) {\n        (j.mensagens || []).forEach(function (m) {\n          if (m.id > estado.ultimo) { estado.ultimo = m.id; adicionar({ de: 'lia', texto: m.texto }); }\n        });\n      })\n      .catch(function () {});\n  }\n  setInterval(buscarNovas, 3000); buscarNovas();\n\n  document.getElementById('nova').addEventListener('click', function () {\n    estado = { sessao: novoId(), ultimo: 0, msgs: [{ de: 'lia', texto: BOAS_VINDAS }] };\n    guardar.gravar('olden_chat', estado);\n    caixa.innerHTML = ''; estado.msgs.forEach(mostrar); input.focus();\n  });\n})();\n</script>\n</body>\n</html>\n",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000106",
+      "name": "Mensagem da página",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        460
+      ],
+      "webhookId": "b8c9d0e1-5f6a-4b7c-8d34-e5f6a7b8c9d0",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "olden-chat-enviar",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000107",
+      "name": "Preparar mensagem da página",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        460
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w-0",
+              "name": "sessao",
+              "type": "string",
+              "value": "={{ 'demo:' + String($json.body.sessao || 'sem-sessao').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64) }}"
+            },
+            {
+              "id": "w-1",
+              "name": "mensagem",
+              "type": "string",
+              "value": "={{ String($json.body.mensagem || '').slice(0, 2000) }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000108",
+      "name": "Chamar núcleo (página)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        460
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000109",
+      "name": "Responder mensagem",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        460
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ JSON.stringify({ resposta: $json.output }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000110",
+      "name": "Buscar mensagens novas",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        660
+      ],
+      "webhookId": "c9d0e1f2-6a7b-4c8d-9e45-f6a7b8c9d0e1",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "olden-chat-novas",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000111",
+      "name": "Mensagens da Lia",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        660
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select coalesce(jsonb_agg(jsonb_build_object('id', id, 'texto', texto) order by id), '[]'::jsonb) as mensagens\nfrom mensagens_saida\nwhere sessao = $1::jsonb->>'sessao' and id > ($1::jsonb->>'depois')::bigint",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ sessao: 'demo:' + String($json.query.s || '').replace(/[^a-zA-Z0-9-]/g, '').slice(0, 64), depois: String(parseInt($json.query.depois, 10) || 0) }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000112",
+      "name": "Responder novas",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        660
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ JSON.stringify({ mensagens: $json.mensagens }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "pinData": {},
@@ -95,6 +295,72 @@
         [
           {
             "node": "Chamar núcleo do agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Página do chat": {
+      "main": [
+        [
+          {
+            "node": "Responder página",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem da página": {
+      "main": [
+        [
+          {
+            "node": "Preparar mensagem da página",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar mensagem da página": {
+      "main": [
+        [
+          {
+            "node": "Chamar núcleo (página)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar núcleo (página)": {
+      "main": [
+        [
+          {
+            "node": "Responder mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar mensagens novas": {
+      "main": [
+        [
+          {
+            "node": "Mensagens da Lia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagens da Lia": {
+      "main": [
+        [
+          {
+            "node": "Responder novas",
             "type": "main",
             "index": 0
           }

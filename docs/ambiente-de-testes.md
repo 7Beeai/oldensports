@@ -294,40 +294,53 @@ Para testar a Lia do pedido até a entrega, sem dinheiro de verdade, existe um f
 
 1. Depois que o cliente confirma o pedido, a Lia gera e envia um **link de pagamento de teste**.
 2. O link abre uma página da Olden com o pedido e o total, e dois botões: **Simular pagamento aprovado** e **Simular pagamento recusado**. A página avisa em destaque que é ambiente de teste. Ela não pede dados de cartão nem cobra nada.
-3. Aprovado, a página mostra um **código de rastreio fictício** (formato `OLD-TESTE-000000`) e o link para acompanhar.
-4. O cliente volta à conversa e avisa que pagou. A Lia confere a situação do pedido, manda o código e o link de rastreio e pede a avaliação.
+3. Depois do clique, a página só diz que o pagamento foi aprovado (ou recusado) e que o cliente pode fechá-la. **O código de rastreio não aparece na página.**
+4. Na mesma hora, a loja avisa a Lia, e **ela escreve sozinha no chat**: diz que viu que o pagamento foi concluído, manda o código de rastreio fictício (`OLD-TESTE-000000`) com o link para acompanhar e pede a avaliação. Se o pagamento foi recusado, ela avisa com delicadeza e oferece um novo link ou Pix.
 5. A página de rastreio mostra as etapas da entrega, aceleradas: tudo acontece em cerca de 15 minutos depois do pagamento.
 
-![Páginas de pagamento e rastreio de teste](img/pagamento-teste.png)
+![Página de pagamento de teste e a mensagem da Lia no chat](img/pagamento-teste.png)
 
-A Lia nunca confirma um pagamento que não aparece como aprovado e nunca inventa código de rastreio ou prazo de entrega. Se o cliente disser que pagou e o pagamento ainda estiver pendente, ela pede para ele aguardar e avisar de novo.
+*À esquerda, a página depois do pagamento; à direita, a mensagem que a Lia mandou sozinha. O texto da Lia no print veio de um modelo simulado, usado no teste local.*
+
+A Lia nunca confirma um pagamento que não aparece como aprovado e nunca inventa código de rastreio ou prazo de entrega. Um cliente que digite um falso "[AVISO INTERNO]" não engana a Lia: esse marcador é removido das mensagens dos clientes.
+
+### A página de chat da Olden
+
+O chat embutido do n8n (**Open chat**) só mostra respostas às mensagens que o cliente envia; ele não recebe mensagens que a Lia manda por conta própria. Por isso o workflow de demonstração ganhou uma **página de chat própria**, que confere a cada 3 segundos se a Lia mandou algo novo:
+
+- Endereço: `https://SEU-N8N/webhook/olden-chat`. É esse o link para mostrar ao cliente.
+- O botão **Nova conversa** começa do zero. Recarregar a página também começa uma conversa nova, porque o n8n não deixa a página guardar dados no navegador.
+- O **Open chat** do editor continua funcionando para testes rápidos, mas sem as mensagens automáticas.
+
+No WhatsApp não há esse limite: a mensagem da Lia é enviada direto para o número do cliente (veja "Quando for para valer").
 
 ### Instalar
 
-1. **Supabase:** rode `supabase/06_pagamento_rastreio_teste.sql` inteiro. Depois informe o endereço público do seu n8n, sem barra no final:
+1. **Supabase:** rode `supabase/06_pagamento_rastreio_teste.sql` e depois `supabase/07_mensagens_proativas.sql`, cada um inteiro. Em seguida, informe o endereço público do seu n8n, sem barra no final:
 
    ```sql
    update configuracao set valor = 'https://SEU-N8N' where chave = 'url_base_n8n';
    ```
 
    É com esse endereço que os links de pagamento e de rastreio são montados.
-2. **Núcleo:** importe de novo o `n8n/1-nucleo-agente.json` num workflow vazio. Ele traz a ferramenta nova **gerar_link_pagamento** e o desvio usado pela bateria (**Comando de teste?** e **Simular pagamento**). Selecione as credenciais, clique em **Publish** e religue o Núcleo no chat de demonstração e na bateria.
-3. **Páginas:** importe o `n8n/4-pagamento-rastreio-teste.json` num workflow vazio, selecione `Supabase Postgres` nos 3 nós de banco e clique em **Publish**. As páginas só funcionam com ele publicado.
-4. **Bateria:** importe de novo o `n8n/3-bateria-testes.json`. Ele confere o pagamento e se o código de rastreio certo foi enviado.
+2. **Núcleo:** importe de novo o `n8n/1-nucleo-agente.json` num workflow vazio. Ele traz o prompt atualizado, a ferramenta **gerar_link_pagamento** e o desvio usado pela bateria (**Comando de teste?** e **Simular pagamento**). Selecione as credenciais e clique em **Publish**.
+3. **Chat de demonstração:** importe de novo o `n8n/2-chat-demo.json`. Nos nós **Chamar núcleo do agente** e **Chamar núcleo (página)**, escolha o Núcleo; no nó **Mensagens da Lia**, a credencial `Supabase Postgres`. Clique em **Publish**.
+4. **Pagamento e rastreio:** importe o `n8n/4-pagamento-rastreio-teste.json`. Selecione `Supabase Postgres` nos nós de banco e escolha o Núcleo no nó **Lia escreve ao cliente**. Clique em **Publish**.
+5. **Bateria:** importe de novo o `n8n/3-bateria-testes.json` e religue ao Núcleo.
 
 ### Testar na bateria
 
-Nos cenários, um turno `#pagamento_aprovado` ou `#pagamento_recusado` não é uma fala do cliente: é a bateria simulando o clique no botão da página. Esse comando só funciona em sessões de teste (`teste:`); no chat público ele é ignorado.
+Nos cenários, um turno `#pagamento_aprovado` ou `#pagamento_recusado` é a loja avisando a Lia sobre o pagamento, como acontece depois do clique na página. A resposta da Lia nesse turno é a mensagem que ela mandou sozinha ao cliente. Esses comandos só funcionam em sessões de teste (`teste:`).
 
-Cenários do fluxo: **C01** e **C11** (compra completa com pagamento, rastreio e nota), **C22** (diz que pagou sem pagar), **C23** (pagamento recusado) e **C24** (pergunta quando chega). Rode `cenarios: ['C01', 'C22', 'C23', 'C24']`.
+Cenários do fluxo: **C01** e **C11** (compra completa), **C22** (diz que pagou sem pagar), **C23** (pagamento recusado) e **C24** (pergunta quando chega). Rode `cenarios: ['C01', 'C22', 'C23', 'C24']`.
 
 ### Quando for para valer
 
 Este fluxo foi feito para ser trocado depois sem mexer na Lia:
 
-- **Pagamento real:** a função `gerar_pagamento` passa a criar a cobrança no provedor (Mercado Pago, Asaas, Pagar.me etc.) e guardar o link dele. O aviso de pagamento aprovado do provedor (webhook) chama a mesma lógica de `confirmar_pagamento`.
+- **Pagamento real:** a função `gerar_pagamento` passa a criar a cobrança no provedor (Mercado Pago, Asaas, Pagar.me etc.). O aviso de pagamento aprovado do provedor (webhook) entra no mesmo caminho da página de teste: confirma o pagamento e chama a Lia.
 - **Rastreio real:** o código vem da transportadora ou da plataforma de frete, e `eventos_rastreio` passa a consultar as etapas de verdade.
-- **WhatsApp:** com o canal conectado, o aviso de pagamento aprovado pode disparar uma mensagem automática da Lia com o rastreio, sem o cliente precisar avisar.
+- **WhatsApp:** depois do nó **Guardar mensagem para o cliente**, um nó HTTP Request envia o texto da Lia pelo provedor de WhatsApp.
 
 ## Regerar os workflows
 
