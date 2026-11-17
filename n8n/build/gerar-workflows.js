@@ -73,6 +73,25 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
         options: {},
       },
     },
+    {
+      // Só a bateria usa: turnos "#pagamento_aprovado" / "#pagamento_recusado" em sessões "teste:"
+      id: id(), name: 'Comando de teste?', type: 'n8n-nodes-base.if', typeVersion: 2.2, position: [330, 0],
+      parameters: {
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+          conditions: [{
+            id: 'cmd-0',
+            leftValue: "={{ $json.sessao.startsWith('teste:') && $json.mensagem.startsWith('#pagamento_') }}",
+            rightValue: '', operator: { type: 'boolean', operation: 'true', singleValue: true },
+          }],
+          combinator: 'and',
+        },
+        options: {},
+      },
+    },
+    pg('Simular pagamento', [440, -200],
+      "select simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as output",
+      '={{ JSON.stringify($json) }}'),
     pg('Contexto do atendimento', [440, 0],
       "select c.*, $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
       '={{ JSON.stringify($json) }}'),
@@ -104,16 +123,22 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       'Registra a avaliação do atendimento (nota de 1 a 5 e comentário opcional) e encerra a conversa. Chame quando o cliente der a nota.',
       "insert into avaliacoes (conversa_id, nota, comentario)\nselect (j->>'conversa_id')::uuid, (j->>'nota')::int, nullif(j->>'comentario', '')\nfrom (select $1::jsonb as j) p\nreturning 'avaliacao registrada' as resultado, nota;",
       `conversa_id: ${C}, nota: $fromAI('nota', 'Nota de 1 a 5 dada pelo cliente', 'number'), comentario: $fromAI('comentario', 'Comentário do cliente; vazio se não houver', 'string')`),
+    tool('gerar_link_pagamento', [1260, 260],
+      'Gera o link de pagamento de todos os itens já registrados nesta conversa e devolve o link e o valor total. Chame depois de registrar o(s) item(ns) com registrar_pedido, ou quando o cliente precisar de um novo link (ex.: pagamento recusado). Envie ao cliente exatamente o link devolvido.',
+      "select gerar_pagamento(($1::jsonb->>'conversa_id')::uuid) as resultado",
+      `conversa_id: ${C}`),
   ];
   const connections = {
     Entrada: main('Configuração'),
-    'Configuração': main('Contexto do atendimento'),
+    'Configuração': main('Comando de teste?'),
+    'Comando de teste?': main('Simular pagamento', 'Contexto do atendimento'),
     'Contexto do atendimento': main('Agente Olden'),
     'Claude via OpenRouter': { ai_languageModel: [[conn('Agente Olden', 'ai_languageModel')]] },
     'Memória da conversa': { ai_memory: [[conn('Agente Olden', 'ai_memory')]] },
     registrar_interesse: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     registrar_pedido: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     registrar_avaliacao: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    gerar_link_pagamento: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
   };
   save('1-nucleo-agente.json', {
     name: 'Olden | 1. Núcleo do agente', nodes, connections, pinData: {},
@@ -247,6 +272,17 @@ if (e.avaliacao_nota !== undefined) {
   add('avaliação', !!a && a.nota === e.avaliacao_nota, a ? 'nota gravada ' + a.nota : 'nenhuma avaliação gravada');
 }
 if (e.status_final) add('status final', f.status_final === e.status_final, 'gravado ' + f.status_final);
+const pags = f.pagamentos || [];
+const ultPag = pags[pags.length - 1];
+if (e.pagamento_status) add('pagamento', !!ultPag && ultPag.status === e.pagamento_status, ultPag ? 'último pagamento: ' + ultPag.status : 'nenhum link de pagamento gerado');
+if (e.rastreio_no_texto !== undefined) {
+  const cod = (pags.find((p) => p.codigo_rastreio) || {}).codigo_rastreio;
+  const falas = c.transcricao.map((t) => String(t.agente)).join('\\n');
+  const enviou = !!cod && falas.includes(cod);
+  const inventou = !cod && /OLD-TESTE-\\d+/.test(falas);
+  add('código de rastreio', e.rastreio_no_texto ? enviou : (!enviou && !inventou),
+    e.rastreio_no_texto ? (enviou ? 'enviado ' + cod : 'não enviou o código ' + (cod || '(nenhum gerado)')) : (inventou ? 'citou um código que não existe' : 'ok'));
+}
 const erros = c.transcricao.filter((t) => String(t.agente).startsWith('[ERRO]')).length;
 add('execução sem erro', erros === 0, erros ? erros + ' turno(s) com erro' : 'ok');
 
@@ -263,6 +299,10 @@ REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, p
 
 CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}
+
+Turnos em que o CLIENTE escreve algo começando com "#pagamento_" não são falas do cliente: são o sistema de teste simulando o pagamento. Ignore esses turnos ao avaliar.
+
+LINKS E CÓDIGOS: o link de pagamento e o código de rastreio (formato OLD-TESTE-000000) são fictícios e corretos de usar. O agente nunca pode inventar um código de rastreio, confirmar um pagamento que não consta como aprovado no banco, nem inventar prazo de entrega.
 
 O QUE FICOU GRAVADO NO BANCO (fonte da verdade):
 {{ JSON.stringify($json.fatos) }}
@@ -333,6 +373,110 @@ return [{ json: { ...c, nota_juiz: j.nota, aprovado_juiz: !!j.aprovado, comentar
   };
   save('3-bateria-testes.json', {
     name: 'Olden | 3. Bateria de testes', nodes, connections, pinData: {},
+    settings: { executionOrder: 'v1' },
+  });
+}
+
+// =====================================================================
+// 4. Pagamento e rastreio de TESTE (páginas públicas)
+// =====================================================================
+{
+  seq = 300;
+  const CSS = `*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f5f4;color:#14231b}
+.topo{background:#0b6b3a;color:#fff;padding:20px 16px}.topo h1{margin:0;font-size:22px}.topo p{margin:4px 0 0;opacity:.85;font-size:14px}
+.aviso{background:#fff4d6;color:#6b4e00;border-bottom:1px solid #f0d58a;padding:10px 16px;font-size:14px;font-weight:600}
+main{max-width:480px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.total{font-size:26px;font-weight:700;margin:8px 0 0}ul{padding-left:18px;margin:8px 0}li{margin:4px 0}
+button{width:100%;border:0;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
+.ok{background:#0b6b3a;color:#fff}.nao{background:#fff;color:#a12a2a;border:1px solid #e3b5b5}
+.codigo{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:1px}
+.etapa{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eef1ef}.etapa:last-child{border:0}
+.bola{width:14px;height:14px;border-radius:50%;margin-top:3px;flex:none;background:#cfd8d3}.feita .bola{background:#0b6b3a}
+.pendente{color:#8a958f}.quando{font-size:13px;color:#5b6b62}`;
+  const PAGINA = `const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pagina = (titulo, corpo) => '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>' + esc(titulo) + '</title><style>${CSS.replace(/\n/g, '')}</style></head><body><div class="topo"><h1>Olden Sports</h1><p>' + esc(titulo) + '</p></div><div class="aviso">AMBIENTE DE TESTE: nenhum valor é cobrado e nenhum produto é enviado.</div><main>' + corpo + '</main></body></html>';`;
+
+  const HTML_PAGAMENTO = `${PAGINA}
+const p = $json;
+let corpo;
+if (!p.token) {
+  corpo = '<div class="card"><p>Link de pagamento não encontrado.</p></div>';
+} else if (p.status === 'pago') {
+  corpo = '<div class="card"><p>Este pedido já foi pago ✅</p><p>Código de rastreio:</p><p class="codigo">' + esc(p.codigo_rastreio) + '</p><p><a href="olden-rastreio?c=' + encodeURIComponent(p.codigo_rastreio) + '">Acompanhar entrega</a></p></div>';
+} else {
+  corpo = '<div class="card"><p>Olá' + (p.nome ? ', ' + esc(p.nome) : '') + '! Confira seu pedido:</p><ul>' + (p.itens || []).map((i) => '<li>' + esc(i) + '</li>').join('') + '</ul><p class="total">' + esc(p.valor) + '</p></div>'
+    + (p.status === 'recusado' ? '<div class="card"><p>O último pagamento deste link foi recusado. Peça um novo link no chat.</p></div>' : '')
+    + '<div class="card"><p>Escolha o resultado da simulação:</p>'
+    + '<form method="post" action="olden-pagamento-confirmar"><input type="hidden" name="t" value="' + esc(p.token) + '"><input type="hidden" name="r" value="aprovado"><button class="ok">Simular pagamento aprovado</button></form>'
+    + '<form method="post" action="olden-pagamento-confirmar"><input type="hidden" name="t" value="' + esc(p.token) + '"><input type="hidden" name="r" value="recusado"><button class="nao">Simular pagamento recusado</button></form></div>';
+}
+return [{ json: { html: pagina('Pagamento', corpo) } }];`;
+
+  const HTML_CONFIRMACAO = `${PAGINA}
+const r = $json.res || {};
+let corpo;
+if (!r.ok) corpo = '<div class="card"><p>' + esc(r.mensagem || 'Não foi possível processar.') + '</p></div>';
+else if (r.status === 'pago') corpo = '<div class="card"><p><strong>Pagamento aprovado (simulação) ✅</strong></p><p>Valor: ' + esc(r.valor) + '</p><p>Código de rastreio:</p><p class="codigo">' + esc(r.codigo_rastreio) + '</p><p><a href="olden-rastreio?c=' + encodeURIComponent(r.codigo_rastreio) + '">Acompanhar entrega</a></p></div><div class="card"><p>Volte para a conversa e avise a Lia que pagou.</p></div>';
+else corpo = '<div class="card"><p><strong>Pagamento recusado (simulação)</strong></p><p>Volte para a conversa e avise a Lia: ela gera um novo link.</p></div>';
+return [{ json: { html: pagina('Pagamento', corpo) } }];`;
+
+  const HTML_RASTREIO = `${PAGINA}
+const codigo = $('Rastreio').first().json.query.c;
+const etapas = $input.all().map((i) => i.json).filter((e) => e.etapa);
+let corpo;
+if (!etapas.length) corpo = '<div class="card"><p>Código de rastreio não encontrado.</p></div>';
+else corpo = '<div class="card"><p>Código de rastreio</p><p class="codigo">' + esc(codigo) + '</p></div><div class="card">'
+  + etapas.map((e) => '<div class="etapa ' + (e.concluida ? 'feita' : 'pendente') + '"><div class="bola"></div><div><div>' + esc(e.etapa) + '</div><div class="quando">' + (e.concluida ? esc(e.quando) : 'previsto para ' + esc(e.quando)) + '</div></div></div>').join('')
+  + '</div><div class="card"><p class="quando">Simulação acelerada: a entrega fictícia completa leva cerca de 15 minutos depois do pagamento.</p></div>';
+return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
+
+  const webhook = (name, position, path, method, webhookId) => ({
+    id: id(), name, type: 'n8n-nodes-base.webhook', typeVersion: 2, position, webhookId,
+    parameters: { httpMethod: method, path, responseMode: 'responseNode', options: {} },
+  });
+  const responder = (name, position) => ({
+    id: id(), name, type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position,
+    parameters: {
+      respondWith: 'text', responseBody: '={{ $json.html }}',
+      options: { responseHeaders: { entries: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }] } },
+    },
+  });
+
+  const nodes = [
+    webhook('Página de pagamento', [0, 0], 'olden-pagamento', 'GET', 'd4e5f6a7-1b2c-4d3e-8f90-a1b2c3d4e5f6'),
+    pg('Buscar pagamento', [220, 0],
+      "select pg.token, pg.status, brl(pg.valor) as valor, pg.codigo_rastreio, cl.nome,\n  (select jsonb_agg(p.quantidade || 'x ' || pr.nome || ' (tam. ' || p.tamanho || ')' order by p.criado_em)\n     from pedidos p join produtos pr on pr.sku = p.sku where p.conversa_id = pg.conversa_id) as itens\nfrom pagamentos pg\njoin conversas c on c.id = pg.conversa_id\njoin clientes cl on cl.id = c.cliente_id\nwhere pg.token = $1",
+      "={{ $json.query.t || '' }}", { alwaysOutputData: true }),
+    code('Montar página de pagamento', [440, 0], HTML_PAGAMENTO),
+    responder('Responder pagamento', [660, 0]),
+
+    webhook('Confirmar pagamento', [0, 220], 'olden-pagamento-confirmar', 'POST', 'e5f6a7b8-2c3d-4e5f-9a01-b2c3d4e5f6a7'),
+    pg('Aprovar ou recusar', [220, 220],
+      "select confirmar_pagamento($1::jsonb->>'t', ($1::jsonb->>'r') = 'aprovado') as res",
+      '={{ JSON.stringify({ t: $json.body.t, r: $json.body.r }) }}'),
+    code('Montar confirmação', [440, 220], HTML_CONFIRMACAO),
+    responder('Responder confirmação', [660, 220]),
+
+    webhook('Rastreio', [0, 440], 'olden-rastreio', 'GET', 'f6a7b8c9-3d4e-4f5a-8b12-c3d4e5f6a7b8'),
+    pg('Buscar etapas', [220, 440],
+      "select etapa, to_char(quando at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI') as quando, concluida\nfrom eventos_rastreio($1)",
+      "={{ $json.query.c || '' }}", { alwaysOutputData: true }),
+    code('Montar rastreio', [440, 440], HTML_RASTREIO),
+    responder('Responder rastreio', [660, 440]),
+  ];
+  const connections = {
+    'Página de pagamento': main('Buscar pagamento'),
+    'Buscar pagamento': main('Montar página de pagamento'),
+    'Montar página de pagamento': main('Responder pagamento'),
+    'Confirmar pagamento': main('Aprovar ou recusar'),
+    'Aprovar ou recusar': main('Montar confirmação'),
+    'Montar confirmação': main('Responder confirmação'),
+    Rastreio: main('Buscar etapas'),
+    'Buscar etapas': main('Montar rastreio'),
+    'Montar rastreio': main('Responder rastreio'),
+  };
+  save('4-pagamento-rastreio-teste.json', {
+    name: 'Olden | 4. Pagamento e rastreio de teste', nodes, connections, pinData: {},
     settings: { executionOrder: 'v1' },
   });
 }

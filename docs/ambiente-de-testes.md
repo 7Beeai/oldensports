@@ -288,6 +288,47 @@ A Lia dá a informação na hora em que o cliente precisa dela:
 
 Na bateria, rode `cenarios: ['C01', 'C15', 'C18', 'C19', 'C20', 'C21']`. A avaliadora confere tom e apresentação: tom errado ou resposta poluída tiram até 2 pontos, e informação errada continua sendo o mais grave.
 
+## 10. Pagamento e rastreio de teste
+
+Para testar a Lia do pedido até a entrega, sem dinheiro de verdade, existe um fluxo **100% fictício**:
+
+1. Depois que o cliente confirma o pedido, a Lia gera e envia um **link de pagamento de teste**.
+2. O link abre uma página da Olden com o pedido e o total, e dois botões: **Simular pagamento aprovado** e **Simular pagamento recusado**. A página avisa em destaque que é ambiente de teste. Ela não pede dados de cartão nem cobra nada.
+3. Aprovado, a página mostra um **código de rastreio fictício** (formato `OLD-TESTE-000000`) e o link para acompanhar.
+4. O cliente volta à conversa e avisa que pagou. A Lia confere a situação do pedido, manda o código e o link de rastreio e pede a avaliação.
+5. A página de rastreio mostra as etapas da entrega, aceleradas: tudo acontece em cerca de 15 minutos depois do pagamento.
+
+![Páginas de pagamento e rastreio de teste](img/pagamento-teste.png)
+
+A Lia nunca confirma um pagamento que não aparece como aprovado e nunca inventa código de rastreio ou prazo de entrega. Se o cliente disser que pagou e o pagamento ainda estiver pendente, ela pede para ele aguardar e avisar de novo.
+
+### Instalar
+
+1. **Supabase:** rode `supabase/06_pagamento_rastreio_teste.sql` inteiro. Depois informe o endereço público do seu n8n, sem barra no final:
+
+   ```sql
+   update configuracao set valor = 'https://SEU-N8N' where chave = 'url_base_n8n';
+   ```
+
+   É com esse endereço que os links de pagamento e de rastreio são montados.
+2. **Núcleo:** importe de novo o `n8n/1-nucleo-agente.json` num workflow vazio. Ele traz a ferramenta nova **gerar_link_pagamento** e o desvio usado pela bateria (**Comando de teste?** e **Simular pagamento**). Selecione as credenciais, clique em **Publish** e religue o Núcleo no chat de demonstração e na bateria.
+3. **Páginas:** importe o `n8n/4-pagamento-rastreio-teste.json` num workflow vazio, selecione `Supabase Postgres` nos 3 nós de banco e clique em **Publish**. As páginas só funcionam com ele publicado.
+4. **Bateria:** importe de novo o `n8n/3-bateria-testes.json`. Ele confere o pagamento e se o código de rastreio certo foi enviado.
+
+### Testar na bateria
+
+Nos cenários, um turno `#pagamento_aprovado` ou `#pagamento_recusado` não é uma fala do cliente: é a bateria simulando o clique no botão da página. Esse comando só funciona em sessões de teste (`teste:`); no chat público ele é ignorado.
+
+Cenários do fluxo: **C01** e **C11** (compra completa com pagamento, rastreio e nota), **C22** (diz que pagou sem pagar), **C23** (pagamento recusado) e **C24** (pergunta quando chega). Rode `cenarios: ['C01', 'C22', 'C23', 'C24']`.
+
+### Quando for para valer
+
+Este fluxo foi feito para ser trocado depois sem mexer na Lia:
+
+- **Pagamento real:** a função `gerar_pagamento` passa a criar a cobrança no provedor (Mercado Pago, Asaas, Pagar.me etc.) e guardar o link dele. O aviso de pagamento aprovado do provedor (webhook) chama a mesma lógica de `confirmar_pagamento`.
+- **Rastreio real:** o código vem da transportadora ou da plataforma de frete, e `eventos_rastreio` passa a consultar as etapas de verdade.
+- **WhatsApp:** com o canal conectado, o aviso de pagamento aprovado pode disparar uma mensagem automática da Lia com o rastreio, sem o cliente precisar avisar.
+
 ## Regerar os workflows
 
 Os três JSON são gerados a partir de `n8n/system-prompt.md` e `n8n/build/gerar-workflows.js`:
