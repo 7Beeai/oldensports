@@ -15,10 +15,10 @@
         "public": true,
         "mode": "hostedChat",
         "authentication": "none",
-        "initialMessages": "Oi! Eu sou a Lia, da Olden Sports 😊\nComo posso te ajudar hoje?",
+        "initialMessages": "Oi! Aqui é a Lia, da Olden Sports 😊\nO que você está procurando hoje?",
         "options": {
           "title": "Olden Sports",
-          "subtitle": "Atendimento virtual (ambiente de demonstração)",
+          "subtitle": "Atendimento (ambiente de demonstração)",
           "inputPlaceholder": "Digite sua mensagem...",
           "customCss": ":root {\n  --chat--color--primary: #0b6b3a;\n  --chat--color--primary-shade-50: #095a31;\n  --chat--color--primary--shade-100: #074a28;\n  --chat--color--secondary: #0b6b3a;\n  --chat--color-secondary-shade-50: #095a31;\n  --chat--header--background: #0b6b3a;\n}"
         }

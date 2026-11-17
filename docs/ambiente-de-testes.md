@@ -251,6 +251,14 @@ Em qualquer modo:
 - recebe com carinho quem vem pelas Gêmeas All Star, mas nunca inventa cupom, brinde ou promoção;
 - em trocas, reclamações, atrasos e problemas de pagamento, fala com calma, sem brincadeiras.
 
+### Atendimento humanizado
+
+A Lia se apresenta só como "Lia, da Olden Sports" e escreve como uma vendedora no WhatsApp: frases curtas, linguagem do dia a dia, sem frases prontas de robô. A saudação é curta e não lista o catálogo. Ela recebe a data e a hora de Brasília a cada mensagem, para cumprimentar de acordo com o horário.
+
+**Limite de honestidade:** se o cliente perguntar com sinceridade se está falando com um robô ou uma pessoa, ela não nega. Diz que é a assistente digital da Olden e oferece chamar alguém da equipe. Fingir ser humana quando perguntada pode gerar reclamação, quebra de confiança e risco jurídico (Código de Defesa do Consumidor). Antes de usar com clientes reais, vale confirmar com o jurídico da loja e com a política do provedor de WhatsApp se é preciso avisar que o atendimento é automatizado.
+
+Cenários de teste: **C20** (saudação humana e curta) e **C21** (cliente pergunta se é robô).
+
 ### Apresentação enxuta
 
 A Lia dá a informação na hora em que o cliente precisa dela:
@@ -269,8 +277,8 @@ A Lia dá a informação na hora em que o cliente precisa dela:
 2. No **Chat de demonstração**, abra o nó **Chat público** e troque **Initial Message(s)** pela saudação neutra. Salve e clique em **Publish**:
 
    ```
-   Oi! Eu sou a Lia, da Olden Sports 😊
-   Como posso te ajudar hoje?
+   Oi! Aqui é a Lia, da Olden Sports 😊
+   O que você está procurando hoje?
    ```
 
 3. No Supabase, rode de novo o `supabase/04_ambiente_testes.sql`. Ele ajusta os cenários antigos para a apresentação enxuta e acrescenta os de tom (C15 a C19), sem apagar resultados anteriores.
@@ -278,7 +286,7 @@ A Lia dá a informação na hora em que o cliente precisa dela:
 
 ### Testar
 
-Na bateria, rode `cenarios: ['C01', 'C15', 'C18', 'C19']`. A avaliadora confere tom e apresentação: tom errado ou resposta poluída tiram até 2 pontos, e informação errada continua sendo o mais grave.
+Na bateria, rode `cenarios: ['C01', 'C15', 'C18', 'C19', 'C20', 'C21']`. A avaliadora confere tom e apresentação: tom errado ou resposta poluída tiram até 2 pontos, e informação errada continua sendo o mais grave.
 
 ## Regerar os workflows
 

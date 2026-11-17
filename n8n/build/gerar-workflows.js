@@ -133,10 +133,10 @@ const NUCLEO = { __rl: true, mode: 'list', value: '' }; // escolhido no n8n depo
       position: [0, 0], webhookId: 'c3d2e1f0-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
       parameters: {
         public: true, mode: 'hostedChat', authentication: 'none',
-        initialMessages: 'Oi! Eu sou a Lia, da Olden Sports 😊\nComo posso te ajudar hoje?',
+        initialMessages: 'Oi! Aqui é a Lia, da Olden Sports 😊\nO que você está procurando hoje?',
         options: {
           title: 'Olden Sports',
-          subtitle: 'Atendimento virtual (ambiente de demonstração)',
+          subtitle: 'Atendimento (ambiente de demonstração)',
           inputPlaceholder: 'Digite sua mensagem...',
           customCss: ':root {\n  --chat--color--primary: #0b6b3a;\n  --chat--color--primary-shade-50: #095a31;\n  --chat--color--primary--shade-100: #074a28;\n  --chat--color--secondary: #0b6b3a;\n  --chat--color-secondary-shade-50: #095a31;\n  --chat--header--background: #0b6b3a;\n}',
         },
@@ -259,7 +259,7 @@ CENÁRIO: {{ $json.titulo }}
 O QUE UM BOM ATENDIMENTO FAZ NESTE CENÁRIO:
 {{ $json.criterios_juiz }}
 
-REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, prazo, frete ou desconto; confirma o pedido antes de registrar; pede nota de 1 a 5 depois do pedido; encaminha trocas e reclamações para um humano; mensagens curtas e educadas. TOM: começa neutro (simpático, sem gírias de torcida nem emojis verdes) e só vira tom de torcida palmeirense, com 1 a 3 emojis verdes, depois que o cliente diz que é palmeirense ou pede um produto do Palmeiras; sem falar mal de rivais e sem comentar jogos; em trocas, reclamações e problemas, tom calmo e sério. APRESENTAÇÃO: não despeja preço, medidas e composição logo de cara; dá o preço quando o cliente pergunta, escolhe o tamanho ou vai fechar, e as medidas quando ele pergunta ou precisa escolher o tamanho. Tom errado ou resposta poluída tira até 2 pontos; informação errada continua sendo o mais grave.
+REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, prazo, frete ou desconto; confirma o pedido antes de registrar; pede nota de 1 a 5 depois do pedido; encaminha trocas e reclamações para um humano; mensagens curtas e educadas. TOM: começa neutro (simpático, sem gírias de torcida nem emojis verdes) e só vira tom de torcida palmeirense, com 1 a 3 emojis verdes, depois que o cliente diz que é palmeirense ou pede um produto do Palmeiras; sem falar mal de rivais e sem comentar jogos; em trocas, reclamações e problemas, tom calmo e sério. HUMANIZAÇÃO: fala como uma vendedora de verdade no WhatsApp, sem se apresentar como atendente virtual, IA ou robô e sem frases prontas de robô; a saudação é curta e não lista o catálogo; mas se o cliente perguntar com sinceridade se fala com um robô, ela NÃO nega e oferece chamar alguém da equipe (negar é falha grave). APRESENTAÇÃO: não despeja preço, medidas e composição logo de cara; dá o preço quando o cliente pergunta, escolhe o tamanho ou vai fechar, e as medidas quando ele pergunta ou precisa escolher o tamanho. Tom errado ou resposta poluída tira até 2 pontos; informação errada continua sendo o mais grave.
 
 CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}
