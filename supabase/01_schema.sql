@@ -188,6 +188,8 @@ $$;
 -- ---------- Contexto de cada mensagem (chamado pelo n8n) ----------
 -- Cria o cliente e a conversa se não existirem e devolve tudo que o agente precisa.
 
+-- Recria do zero (o 06 muda o formato do retorno; sem o drop, rodar este arquivo de novo daria erro)
+drop function if exists contexto_atendimento(text, text);
 create or replace function contexto_atendimento(p_identificador text, p_nome text default null)
 returns table (conversa_id uuid, status text, cliente_nome text, catalogo text)
 language plpgsql set search_path = public as $$
