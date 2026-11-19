@@ -342,12 +342,43 @@ Este fluxo foi feito para ser trocado depois sem mexer na Lia:
 - **Rastreio real:** o código vem da transportadora ou da plataforma de frete, e `eventos_rastreio` passa a consultar as etapas de verdade.
 - **WhatsApp:** depois do nó **Guardar mensagem para o cliente**, um nó HTTP Request envia o texto da Lia pelo provedor de WhatsApp.
 
+## 11. Mudar o comportamento da Lia sem mexer no n8n
+
+O prompt da Lia fica no Supabase, na tabela `prompt_agente`, com histórico de versões. O Núcleo busca a versão ativa a cada mensagem e preenche os dados da conversa nos marcadores `{{agora}}`, `{{cliente_nome}}`, `{{situacao_pedido}}`, `{{status}}` e `{{catalogo}}`. Mudou no banco, vale na próxima mensagem, sem Publish no n8n.
+
+### Instalar (uma vez)
+
+1. Rode no Supabase o `supabase/08_prompt_no_banco.sql`, ou o `00_instalar_tudo.sql`, que já inclui o 08.
+2. Importe de novo o `n8n/1-nucleo-agente.json` e clique em **Publish**. Ele passa a ler o prompt do banco. Depois, religue o Núcleo nos workflows 2, 3 e 4.
+
+### Mudar o comportamento
+
+- **Comigo:** com o conector do Supabase ligado, eu aplico a versão nova no seu projeto; você só confirma. Também deixo a versão no repositório (`n8n/system-prompt.md`).
+- **Sozinho:** rode no SQL Editor o `supabase/atualizar_prompt.sql` que eu gerar.
+
+### Comandos úteis
+
+```sql
+-- Ver as versões
+select versao, ativo, descricao, criado_em from prompt_agente order by versao desc;
+
+-- Voltar para uma versão anterior
+select ativar_prompt(3);
+
+-- Ver o prompt ativo
+select texto from prompt_agente where ativo;
+```
+
 ## Regerar os workflows
 
-Os três JSON são gerados a partir de `n8n/system-prompt.md` e `n8n/build/gerar-workflows.js`:
+Os JSON são gerados por `n8n/build/gerar-workflows.js`, e os SQL do prompt e de instalação por `n8n/build/gerar-sql.js`:
 
 ```bash
 node n8n/build/gerar-workflows.js
+```
+
+```bash
+node n8n/build/gerar-sql.js "descrição da mudança"
 ```
 
 Se você editar o prompt direto no n8n, lembre de copiar a versão final para `n8n/system-prompt.md`, para não perder a mudança na próxima geração.

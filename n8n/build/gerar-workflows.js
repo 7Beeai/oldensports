@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const dir = path.join(__dirname, '..');
-const prompt = fs.readFileSync(path.join(dir, 'system-prompt.md'), 'utf8').trim();
+// O prompt (n8n/system-prompt.md) vai para o banco pelo node n8n/build/gerar-sql.js
 
 // Padrões do agente: mude aqui ou no nó "Configuração" do núcleo
 const PADRAO = { modelo: 'anthropic/claude-haiku-5.5', esforco: 'medium', janela: 20 };
@@ -94,13 +94,14 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       "select $1::jsonb->>'sessao' as sessao,\n       simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as mensagem,\n       $1::jsonb->>'modelo' as modelo, $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela",
       '={{ JSON.stringify($json) }}'),
     pg('Contexto do atendimento', [440, 0],
-      "select c.*, $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+      "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo) as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
       '={{ JSON.stringify($json) }}'),
     {
       id: id(), name: 'Agente Olden', type: '@n8n/n8n-nodes-langchain.agent', typeVersion: 2.2, position: [700, 0],
       parameters: {
         promptType: 'define', text: '={{ $json.mensagem }}',
-        options: { systemMessage: '=' + prompt, maxIterations: 8 },
+        // O prompt vem do banco (tabela prompt_agente, versão ativa), já com os dados da conversa
+        options: { systemMessage: '={{ $json.prompt_sistema }}', maxIterations: 8 },
       },
     },
     openRouter('Claude via OpenRouter', [440, 260], '={{ $json.modelo }}', '={{ $json.esforco }}'),
