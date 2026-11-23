@@ -342,6 +342,28 @@ Este fluxo foi feito para ser trocado depois sem mexer na Lia:
 - **Rastreio real:** o código vem da transportadora ou da plataforma de frete, e `eventos_rastreio` passa a consultar as etapas de verdade.
 - **WhatsApp:** depois do nó **Guardar mensagem para o cliente**, um nó HTTP Request envia o texto da Lia pelo provedor de WhatsApp.
 
+### Avisos de cada etapa da entrega
+
+Depois do pagamento, a entrega fictícia avança uma etapa a cada **2 minutos**:
+
+1. Pedido separado no estoque
+2. Objeto postado
+3. Em trânsito para a cidade de destino
+4. Saiu para entrega
+5. Entregue
+
+O workflow **4** confere **a cada minuto** se algum pedido mudou de etapa. Se mudou, a Lia escreve sozinha ao cliente contando a novidade, com o link de rastreio. Na etapa "Entregue", ela pergunta se chegou tudo certinho. Ela não repete aviso e, se duas etapas passarem de uma vez, avisa só a mais recente. Conversas da bateria (`teste:`) ficam de fora.
+
+Para mudar o intervalo:
+
+```sql
+update configuracao set valor = '5' where chave = 'minutos_por_etapa_rastreio';
+```
+
+Para instalar: rode `supabase/09_avisos_rastreio.sql` e `supabase/atualizar_prompt.sql` no Supabase. Depois importe de novo o `n8n/4-pagamento-rastreio-teste.json`, escolha o Núcleo nos nós **Lia escreve ao cliente** e **Lia avisa a etapa**, selecione as credenciais e clique em **Publish**. O workflow precisa estar publicado para a verificação de cada minuto rodar.
+
+Na bateria, o comando `#pagamento_rastreio_avancou` avança a entrega em uma etapa. Ele é usado no cenário **C25**.
+
 ## 11. Mudar o comportamento da Lia sem mexer no n8n
 
 O prompt da Lia fica no Supabase, na tabela `prompt_agente`, com histórico de versões. O Núcleo busca a versão ativa a cada mensagem e preenche os dados da conversa nos marcadores `{{agora}}`, `{{cliente_nome}}`, `{{situacao_pedido}}`, `{{status}}` e `{{catalogo}}`. Mudou no banco, vale na próxima mensagem, sem Publish no n8n.

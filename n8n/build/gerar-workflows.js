@@ -372,7 +372,7 @@ REGRAS GERAIS DA LOJA: só fala de produtos do catálogo; não inventa preço, p
 CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}
 
-Turnos em que o CLIENTE aparece como "#pagamento_aprovado" ou "#pagamento_recusado" não são falas do cliente: é o sistema da loja avisando o agente sobre o pagamento. A resposta do AGENTE nesses turnos é uma mensagem que ele mandou ao cliente por iniciativa própria; avalie se ela avisa corretamente o que aconteceu.
+Turnos em que o CLIENTE aparece como "#pagamento_aprovado", "#pagamento_recusado" ou "#pagamento_rastreio_avancou" não são falas do cliente: é o sistema da loja avisando o agente sobre o pagamento ou sobre uma etapa nova da entrega. A resposta do AGENTE nesses turnos é uma mensagem que ele mandou ao cliente por iniciativa própria; avalie se ela avisa corretamente o que aconteceu.
 
 LINKS E CÓDIGOS: o link de pagamento e o código de rastreio (formato OLD-TESTE-000000) são fictícios e corretos de usar. O agente nunca pode inventar um código de rastreio, confirmar um pagamento que não consta como aprovado no banco, nem inventar prazo de entrega.
 
@@ -564,6 +564,22 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
       "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output }) }}"),
     // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
 
+    // A cada minuto: etapas novas do rastreio viram mensagens da Lia ao cliente
+    {
+      id: id(), name: 'A cada minuto', type: 'n8n-nodes-base.scheduleTrigger', typeVersion: 1.2, position: [0, 680],
+      parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 1 }] } },
+    },
+    pg('Etapas novas do rastreio', [220, 680], 'select * from avisos_rastreio_pendentes()', null),
+    {
+      id: id(), name: 'Lia avisa a etapa', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2,
+      position: [440, 680], onError: 'continueRegularOutput',
+      parameters: { source: 'database', workflowId: NUCLEO, mode: 'each', options: { waitForSubWorkflow: true } },
+    },
+    pg('Guardar aviso para o cliente', [660, 680],
+      "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+      "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output }) }}"),
+    // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
+
     webhook('Rastreio', [0, 440], 'olden-rastreio', 'GET', 'f6a7b8c9-3d4e-4f5a-8b12-c3d4e5f6a7b8'),
     pg('Buscar etapas', [220, 440],
       "select etapa, to_char(quando at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI') as quando, concluida\nfrom eventos_rastreio($1)",
@@ -582,6 +598,9 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
     'Tem aviso para a Lia?': main('Montar aviso'),
     'Montar aviso': main('Lia escreve ao cliente'),
     'Lia escreve ao cliente': main('Guardar mensagem para o cliente'),
+    'A cada minuto': main('Etapas novas do rastreio'),
+    'Etapas novas do rastreio': main('Lia avisa a etapa'),
+    'Lia avisa a etapa': main('Guardar aviso para o cliente'),
     Rastreio: main('Buscar etapas'),
     'Buscar etapas': main('Montar rastreio'),
     'Montar rastreio': main('Responder rastreio'),

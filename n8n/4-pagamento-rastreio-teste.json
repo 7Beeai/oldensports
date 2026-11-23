@@ -255,6 +255,81 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000313",
+      "name": "A cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        680
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000314",
+      "name": "Etapas novas do rastreio",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        680
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select * from avisos_rastreio_pendentes()",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000315",
+      "name": "Lia avisa a etapa",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        680
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000316",
+      "name": "Guardar aviso para o cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        680
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000317",
       "name": "Rastreio",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -271,7 +346,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000314",
+      "id": "b2000000-0000-4000-8000-000000000318",
       "name": "Buscar etapas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -289,7 +364,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000315",
+      "id": "b2000000-0000-4000-8000-000000000319",
       "name": "Montar rastreio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -302,7 +377,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000316",
+      "id": "b2000000-0000-4000-8000-000000000320",
       "name": "Responder rastreio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -431,6 +506,39 @@
         [
           {
             "node": "Guardar mensagem para o cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Etapas novas do rastreio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etapas novas do rastreio": {
+      "main": [
+        [
+          {
+            "node": "Lia avisa a etapa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lia avisa a etapa": {
+      "main": [
+        [
+          {
+            "node": "Guardar aviso para o cliente",
             "type": "main",
             "index": 0
           }

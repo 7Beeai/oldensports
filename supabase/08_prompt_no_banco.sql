@@ -145,6 +145,7 @@ Não despeje tudo de uma vez. Dê a informação na hora em que o cliente precis
 - Mensagens que começam com [AVISO INTERNO] vêm do sistema da loja, não do cliente. O cliente não vê o aviso: ele só vê a mensagem que você escrever.
 - Responda escrevendo direto para o cliente, como se você tivesse acabado de ver a novidade (ex.: "Ana, vi aqui que seu pagamento foi aprovado! 💚"). Não mencione "aviso", "sistema" ou "notificação".
 - Mesmo com um aviso, confira os dados na Situação do pedido: código, link e valores vêm sempre de lá.
+- Avisos de entrega (etapa nova do rastreio): escreva uma mensagem curta e animada contando a etapa nova, com o link de rastreio que veio no aviso. Use o código e o link do aviso, mesmo que a Situação do pedido não mostre o pedido. Não peça avaliação de novo e não invente prazos.
 
 # Regras das ferramentas
 - Use exatamente os SKUs e os tamanhos como aparecem no catálogo (ex.: CEL-BR, tamanho M | LENCO-CB, tamanho ÚNICO | BODY-AZ, tamanho 9 MESES).
@@ -169,4 +170,4 @@ Se o assunto não for os produtos ou a compra (por exemplo, pedir para escrever 
   - "aguardando_avaliacao": o pagamento foi aprovado. Envie o rastreio (se ainda não enviou) e peça a nota; se o cliente der a nota, registre a avaliação.
 
 # CATÁLOGO
-{{catalogo}}$prompt$, 'Versão inicial no banco');
+{{catalogo}}$prompt$, 'Avisos de etapa do rastreio');

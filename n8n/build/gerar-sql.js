@@ -1,6 +1,6 @@
 // Gera os SQL que dependem de arquivos do repositório:
 //   supabase/08_prompt_no_banco.sql  instala o prompt (n8n/system-prompt.md) como versão ativa
-//   supabase/00_instalar_tudo.sql    junta 01 a 08 na ordem
+//   supabase/00_instalar_tudo.sql    junta 01 a 09 na ordem
 //   supabase/atualizar_prompt.sql    só a troca do prompt, para colar no SQL Editor
 // Uso: node n8n/build/gerar-sql.js "descrição da versão"
 const fs = require('fs');
@@ -23,10 +23,10 @@ fs.writeFileSync(path.join(sup, 'atualizar_prompt.sql'),
 console.log('gerado: supabase/atualizar_prompt.sql');
 
 const arquivos = ['01_schema', '02_catalogo', '03_atualiza_body', '04_ambiente_testes', '05_fotos',
-  '06_pagamento_rastreio_teste', '07_mensagens_proativas', '08_prompt_no_banco'];
+  '06_pagamento_rastreio_teste', '07_mensagens_proativas', '08_prompt_no_banco', '09_avisos_rastreio'];
 let tudo = `-- =====================================================================
 -- Olden Sports - INSTALAR TUDO
--- Junta os arquivos 01 a 08, na ordem. Cole o arquivo inteiro numa
+-- Junta os arquivos 01 a 09, na ordem. Cole o arquivo inteiro numa
 -- query nova do SQL Editor do Supabase e clique em Run, sem nada selecionado.
 -- Pode rodar de novo: não duplica nada. Atenção: rodar de novo volta o
 -- estoque de todos os produtos para 8 unidades por tamanho.
