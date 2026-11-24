@@ -41,7 +41,7 @@ O próximo passo em discussão é **oferecer a solução à loja oficial da Olde
 | Fotos dos produtos | Estrutura pronta; links das fotos não cadastrados |
 | WhatsApp | Não conectado (provedor ainda não escolhido) |
 | Pagamento e rastreio reais | Não conectados (fictícios no teste) |
-| Catálogo completo da loja oficial (1000+) | Não iniciado; plano na seção 11 |
+| Catálogo completo da loja oficial | 961 modelos e 3.623 tamanhos coletados do site (Tray) e carregáveis no Supabase, com a busca `buscar_produtos`; a Lia ainda não usa |
 
 ---
 
@@ -246,7 +246,7 @@ Para mudar o comportamento: rodar o `supabase/atualizar_prompt.sql` no Supabase,
 - Rodar a bateria completa com o Claude real e comparar esforço e janela de memória.
 
 **Decisões para a próxima fase**
-1. Qual é a plataforma da loja virtual da Olden (VTEX, Shopify, Nuvemshop, Tray...)?
+1. ~~Plataforma da loja~~: **Tray** (descoberto na coleta). Gateway visto no site: **Vindi**.
 2. A Olden já tem número oficial do WhatsApp (API)? Qual parceiro?
 3. Pagamento: checkout da loja (link) ou pagamento dentro do WhatsApp?
 4. Escopo da demonstração: quais produtos e quais departamentos?

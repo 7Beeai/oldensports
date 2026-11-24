@@ -364,6 +364,24 @@ Para instalar: rode `supabase/09_avisos_rastreio.sql` e `supabase/atualizar_prom
 
 Na bateria, o comando `#pagamento_rastreio_avancou` avança a entrega em uma etapa. Ele é usado no cenário **C25**.
 
+## 12. Catálogo completo da loja (961 modelos)
+
+Os produtos foram coletados do site oficial (`oldensports.com.br`, plataforma **Tray**) pela API web pública da loja: só os produtos disponíveis, com tamanhos, preços (cartão, Pix e parcelamento), descrição, medidas, fotos e vídeo. Ficam em **tabelas novas**, separadas da demonstração atual de 8 produtos, que continua igual.
+
+| Tabela ou função | Conteúdo |
+|---|---|
+| `catalogo_produtos` | 961 modelos, com departamento, clube, gênero e faixa etária |
+| `catalogo_variantes` | 3.623 tamanhos, um SKU cada (`OLD-<id>`); estoque fictício de 8 nos disponíveis |
+| `vitrines` | Promoções, Destaques e Palmeiras (a Olden pode editar) |
+| `buscar_produtos(consulta, filtros, limite)` | A busca da Lia: texto, erros de digitação e filtros (departamento, clube, gênero, faixa etária, tamanho, preço máximo) |
+| `departamentos_catalogo` | Departamentos com quantos modelos têm estoque (para o menu) |
+
+**Instalar:** no SQL Editor, rode `supabase/10_catalogo_completo.sql` e depois `11_carga_catalogo_parte_1.sql` até a `parte_6`, cada um numa query nova. Pode rodar de novo para atualizar.
+
+**Atualizar com os dados do site:** `python3 n8n/build/coletar-catalogo.py PASTA` e depois `python3 n8n/build/montar-carga-catalogo.py PASTA supabase`. Produtos sem foto vão para `supabase/pendencias_catalogo.txt`.
+
+A Lia ainda **não** usa este catálogo: isso é o passo 3 do guia (ferramenta de busca e respostas em blocos).
+
 ## 11. Mudar o comportamento da Lia sem mexer no n8n
 
 O prompt da Lia fica no Supabase, na tabela `prompt_agente`, com histórico de versões. O Núcleo busca a versão ativa a cada mensagem e preenche os dados da conversa nos marcadores `{{agora}}`, `{{cliente_nome}}`, `{{situacao_pedido}}`, `{{status}}` e `{{catalogo}}`. Mudou no banco, vale na próxima mensagem, sem Publish no n8n.
