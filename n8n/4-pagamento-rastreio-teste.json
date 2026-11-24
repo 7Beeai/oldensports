@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "select pg.token, pg.status, brl(pg.valor) as valor, pg.codigo_rastreio, cl.nome,\n  (select jsonb_agg(p.quantidade || 'x ' || pr.nome || ' (tam. ' || p.tamanho || ')' order by p.criado_em)\n     from pedidos p join produtos pr on pr.sku = p.sku where p.conversa_id = pg.conversa_id) as itens\nfrom pagamentos pg\njoin conversas c on c.id = pg.conversa_id\njoin clientes cl on cl.id = c.cliente_id\nwhere pg.token = $1",
+        "query": "select pg.token, pg.status, brl(pg.valor) as valor, pg.codigo_rastreio, cl.nome,\n  (select jsonb_agg(p.quantidade || 'x ' || nome_produto(p.sku) || ' (tam. ' || p.tamanho || ')' order by p.criado_em)\n     from pedidos p where p.conversa_id = pg.conversa_id) as itens\nfrom pagamentos pg\njoin conversas c on c.id = pg.conversa_id\njoin clientes cl on cl.id = c.cliente_id\nwhere pg.token = $1",
         "options": {
           "queryReplacement": "={{ $json.query.t || '' }}"
         }

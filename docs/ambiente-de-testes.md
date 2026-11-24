@@ -382,6 +382,48 @@ Os produtos foram coletados do site oficial (`oldensports.com.br`, plataforma **
 
 A Lia ainda **não** usa este catálogo: isso é o passo 3 do guia (ferramenta de busca e respostas em blocos).
 
+## 13. Lia com o catálogo completo e respostas em blocos (passo 3 do guia)
+
+A Lia passa a vender os 961 modelos do catálogo completo e a responder em **blocos visuais**:
+
+| Bloco | O que o cliente vê |
+|---|---|
+| `texto` | Mensagem, com até 3 botões de resposta rápida |
+| `menu` | Lista de opções (ex.: departamentos) |
+| `produto` | Cartão de uma peça, com foto, preço, Pix e tamanhos |
+| `carrossel_produtos` | 2 a 10 cartões para deslizar |
+| `vitrine` | Até 30 peças em seções (quando o cliente pede para ver tudo) |
+| `catalogo` | Botão "Ver catálogo" |
+| `midias` | Fotos e vídeo de uma peça |
+| `pagamento` | Botão "Pagar agora" com o link |
+
+![Chat com blocos](img/chat-blocos.png)
+
+*Teste local: produtos, preços e fotos reais do catálogo; textos de um modelo simulado.*
+
+**Como funciona por dentro**
+- A Lia ganhou as ferramentas **buscar_produtos** e **ver_vitrine**. O catálogo saiu do prompt: ela busca a cada pedido e recebe só os melhores resultados.
+- **Formato da resposta:** ela responde com um JSON de blocos.
+- **Checagem dos blocos:** três nós novos no Núcleo (**Ler blocos**, **Conferir produtos** e **Validar blocos**) conferem os limites do WhatsApp e se cada produto existe e tem estoque. Produto inventado ou esgotado é cortado; bloco inválido vira texto, sem travar a conversa.
+- **Versão em texto:** o Núcleo devolve o texto em `output` e os blocos em `blocos`. O chat desenha os blocos; a bateria e os avisos usam o texto.
+- **Pedidos:** aceitam o código do tamanho (`OLD-...`) ou o do modelo com o tamanho. Preço e Pix vêm do catálogo, e o estoque baixa no catálogo.
+- **Prompt (versão 3):** atende todos os clubes. O modo torcida segue o time do cliente.
+- **Compatibilidade:** os 8 produtos antigos continuam funcionando. Se voltar ao prompt anterior (`select ativar_prompt(2);`), a Lia responde em texto e o Núcleo continua aceitando.
+
+**Instalar, na ordem**
+1. **Supabase**, cada arquivo numa query nova:
+   - `10_catalogo_completo.sql` e as partes `11_carga_catalogo_parte_1` a `6`, se ainda não rodou;
+   - `12_lia_catalogo.sql`;
+   - `atualizar_prompt.sql` (cria a versão 3 do prompt).
+2. **n8n:** reimporte os 4 workflows, cada um num workflow vazio. Em seguida:
+   - religue o Núcleo nos nós que o chamam;
+   - selecione as credenciais;
+   - clique em **Publish** no 1, no 2 e no 4.
+
+**Testar**
+- **Página de chat:** em `/webhook/olden-chat`, teste "queria ver umas coisas", "quero a camisa do Flamengo" e "quero ver tudo de feminino".
+- **Bateria:** rode os cenários novos C26, C27, C28, C30, C34 e C36, além dos antigos, que agora usam os produtos reais. As checagens novas são: formato dos blocos, produtos que existem e têm estoque, no máximo 5 peças por vez e blocos esperados para cada cenário.
+
 ## 11. Mudar o comportamento da Lia sem mexer no n8n
 
 O prompt da Lia fica no Supabase, na tabela `prompt_agente`, com histórico de versões. O Núcleo busca a versão ativa a cada mensagem e preenche os dados da conversa nos marcadores `{{agora}}`, `{{cliente_nome}}`, `{{situacao_pedido}}`, `{{status}}` e `{{catalogo}}`. Mudou no banco, vale na próxima mensagem, sem Publish no n8n.

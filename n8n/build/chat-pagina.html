@@ -15,11 +15,36 @@ header h1{font-size:17px;margin:0}header p{font-size:13px;margin:2px 0 0;opacity
 header button{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.6);color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer}
 .aviso{background:#fff4d6;color:#6b4e00;font-size:12px;padding:6px 16px;text-align:center}
 #msgs{flex:1;overflow-y:auto;padding:12px 12px 4px;display:flex;flex-direction:column;gap:6px}
-.m{max-width:82%;padding:8px 12px;border-radius:12px;line-height:1.4;font-size:15px;white-space:normal;word-wrap:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.m{max-width:82%;padding:8px 12px;border-radius:12px;line-height:1.4;font-size:15px;word-wrap:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08)}
 .lia{background:#fff;align-self:flex-start;border-top-left-radius:4px}
 .eu{background:#d4f5d0;align-self:flex-end;border-top-right-radius:4px}
 .m img{max-width:100%;border-radius:8px;margin:6px 0;display:block}
 .m a{color:#0b6b3a;word-break:break-all}
+.bloco{align-self:flex-start;max-width:92%;width:100%}
+.acoes{display:flex;flex-direction:column;gap:4px;margin-top:4px;max-width:82%}
+.acao{background:#fff;color:#0b6b3a;border:1px solid #cfe3d6;border-radius:10px;padding:8px 10px;font-size:14px;font-weight:600;cursor:pointer;text-align:center}
+.acao:hover{background:#f1f8f3}
+.menu{background:#fff;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.08);max-width:82%;overflow:hidden}
+.menu .corpo{padding:8px 12px;font-size:15px}
+.menu .opcao{display:block;width:100%;text-align:left;border:0;border-top:1px solid #eef1ef;background:#fff;padding:9px 12px;cursor:pointer;font-size:14px}
+.menu .opcao b{display:block;color:#14231b}.menu .opcao span{color:#5b6b62;font-size:12.5px}
+.menu .opcao:hover{background:#f1f8f3}
+.trilho{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory}
+.card{flex:0 0 172px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.1);scroll-snap-align:start;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#f3f5f4;display:block}
+.card .info{padding:8px 10px;display:flex;flex-direction:column;gap:2px;flex:1}
+.card .nome{font-size:13.5px;font-weight:600;line-height:1.25;max-height:2.5em;overflow:hidden}
+.card .preco{font-size:14px;font-weight:700}
+.card .de{font-size:12px;color:#8a958f;text-decoration:line-through;margin-right:4px;font-weight:400}
+.card .pix{font-size:12px;color:#0b6b3a}
+.card .tam{font-size:11.5px;color:#5b6b62}
+.card button{margin:6px 10px 10px;border:0;border-radius:8px;background:#0b6b3a;color:#fff;padding:7px;font-size:13px;font-weight:600;cursor:pointer}
+.card.grande{flex:0 0 auto;width:min(300px,100%)}
+.legenda{font-size:15px;background:#fff;border-radius:12px;padding:8px 12px;margin-bottom:6px;display:inline-block;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.secao{font-size:13px;font-weight:700;color:#0b6b3a;margin:6px 2px 4px}
+.galeria{display:flex;gap:6px;overflow-x:auto}
+.galeria img{height:180px;border-radius:10px}
+.pagar{display:inline-block;background:#0b6b3a;color:#fff !important;text-decoration:none;border-radius:10px;padding:10px 14px;font-weight:700;margin-top:6px}
 .digitando{font-size:13px;color:#5b6b62;padding:0 16px 6px;min-height:20px}
 form{display:flex;gap:8px;padding:8px;background:#f3f5f4;border-top:1px solid #dde4df}
 input{flex:1;border:1px solid #cfd8d3;border-radius:20px;padding:10px 14px;font-size:16px;outline:none}
@@ -50,7 +75,7 @@ form button:disabled{opacity:.5}
   var caixa = document.getElementById('msgs'), digitando = document.getElementById('digitando');
   var form = document.getElementById('f'), input = document.getElementById('t'), botao = document.getElementById('b');
 
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function formatar(texto) {
     var h = esc(texto);
     h = h.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<img alt="$1" src="$2">');
@@ -59,30 +84,102 @@ form button:disabled{opacity:.5}
     h = h.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
     return h.replace(/\n/g, '<br>');
   }
+  function brl(v) { return v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
+  function urlSegura(u) { return /^https?:\/\//.test(String(u || '')) ? String(u) : ''; }
+
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function rolar() { caixa.scrollTop = caixa.scrollHeight; }
+
+  function cartao(p, grande) {
+    var c = el('div', 'card' + (grande ? ' grande' : ''));
+    var img = urlSegura(p.imagem);
+    c.innerHTML = (img ? '<img loading="lazy" alt="' + esc(p.nome) + '" src="' + esc(img) + '">' : '') +
+      '<div class="info"><div class="nome">' + esc(p.nome) + '</div>' +
+      '<div class="preco">' + (p.preco_original && p.preco_original > p.preco ? '<span class="de">' + brl(p.preco_original) + '</span>' : '') + brl(p.preco) + '</div>' +
+      (p.preco_pix ? '<div class="pix">' + brl(p.preco_pix) + ' no Pix</div>' : '') +
+      (p.tamanhos && p.tamanhos.length ? '<div class="tam">Tam.: ' + esc(p.tamanhos.join(', ')) + '</div>' : '') + '</div>';
+    var b = el('button', null, 'Quero esse');
+    b.type = 'button';
+    b.onclick = function () { enviar('Quero o ' + p.nome); };
+    c.appendChild(b);
+    return c;
+  }
+  function botoesAcao(lista, aoTocar) {
+    var wrap = el('div', 'acoes');
+    lista.forEach(function (x) { var b = el('button', 'acao', esc(x.titulo)); b.type = 'button'; b.onclick = function () { aoTocar(x); }; wrap.appendChild(b); });
+    return wrap;
+  }
+
+  function desenharBloco(b) {
+    var box = el('div', 'bloco');
+    if (b.tipo === 'texto') {
+      var m = el('div', 'm lia', formatar(b.texto)); box.appendChild(m);
+      if (b.botoes && b.botoes.length) box.appendChild(botoesAcao(b.botoes, function (x) { enviar(x.titulo); }));
+    } else if (b.tipo === 'menu') {
+      var menu = el('div', 'menu');
+      menu.appendChild(el('div', 'corpo', formatar(b.corpo)));
+      (b.opcoes || []).forEach(function (o) {
+        var op = el('button', 'opcao', '<b>' + esc(o.titulo) + '</b>' + (o.descricao ? '<span>' + esc(o.descricao) + '</span>' : ''));
+        op.type = 'button'; op.onclick = function () { enviar(o.titulo); }; menu.appendChild(op);
+      });
+      box.appendChild(menu);
+    } else if (b.tipo === 'produto') {
+      if (b.texto) box.appendChild(el('div', 'legenda', formatar(b.texto)));
+      var t1 = el('div', 'trilho'); t1.appendChild(cartao(b.produto, true)); box.appendChild(t1);
+      box.appendChild(botoesAcao([{ titulo: 'Ver mais fotos' }], function () { enviar('Quero ver mais fotos do ' + b.produto.nome); }));
+    } else if (b.tipo === 'carrossel_produtos') {
+      if (b.corpo) box.appendChild(el('div', 'legenda', formatar(b.corpo)));
+      var t2 = el('div', 'trilho'); (b.produtos || []).forEach(function (p) { t2.appendChild(cartao(p)); }); box.appendChild(t2);
+    } else if (b.tipo === 'vitrine') {
+      box.appendChild(el('div', 'legenda', '<b>' + esc(b.cabecalho) + '</b>' + (b.corpo ? '<br>' + formatar(b.corpo) : '')));
+      (b.secoes || []).forEach(function (s) {
+        box.appendChild(el('div', 'secao', esc(s.titulo)));
+        var t3 = el('div', 'trilho'); (s.produtos || []).forEach(function (p) { t3.appendChild(cartao(p)); }); box.appendChild(t3);
+      });
+    } else if (b.tipo === 'midias') {
+      if (b.texto) box.appendChild(el('div', 'legenda', formatar(b.texto)));
+      var g = el('div', 'galeria');
+      (b.produto.imagens || []).forEach(function (i) { var u = urlSegura(i.url); if (u) g.appendChild(el('img', null)).src = u; });
+      box.appendChild(g);
+      var v = urlSegura(b.produto.video);
+      if (v) box.appendChild(el('div', 'm lia', '<a href="' + esc(v) + '" target="_blank" rel="noopener">▶ Ver vídeo</a>'));
+    } else if (b.tipo === 'catalogo') {
+      box.appendChild(el('div', 'm lia', formatar(b.corpo)));
+      box.appendChild(botoesAcao([{ titulo: 'Ver catálogo' }], function () { enviar('Quero ver o catálogo completo'); }));
+    } else if (b.tipo === 'pagamento') {
+      var u2 = urlSegura(b.url);
+      box.appendChild(el('div', 'm lia', formatar(b.texto) + (u2 ? '<br><a class="pagar" href="' + esc(u2) + '" target="_blank" rel="noopener">Pagar agora</a>' : '')));
+    } else {
+      return null;
+    }
+    return box;
+  }
+
   function mostrar(m) {
-    var d = document.createElement('div');
-    d.className = 'm ' + (m.de === 'eu' ? 'eu' : 'lia');
-    d.innerHTML = formatar(m.texto);
-    caixa.appendChild(d);
-    caixa.scrollTop = caixa.scrollHeight;
+    if (m.de === 'lia' && m.blocos && m.blocos.length) {
+      m.blocos.forEach(function (b) { var d = desenharBloco(b); if (d) caixa.appendChild(d); });
+    } else {
+      caixa.appendChild(el('div', 'm ' + (m.de === 'eu' ? 'eu' : 'lia'), formatar(m.texto)));
+    }
+    rolar();
   }
   function adicionar(m) { estado.msgs.push(m); guardar.gravar('olden_chat', estado); mostrar(m); }
   estado.msgs.forEach(mostrar);
 
-  form.addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var texto = input.value.trim();
-    if (!texto) return;
-    input.value = ''; adicionar({ de: 'eu', texto: texto });
+  function enviar(texto) {
+    texto = String(texto || '').trim();
+    if (!texto || botao.disabled) return;
+    adicionar({ de: 'eu', texto: texto });
     botao.disabled = true; digitando.textContent = 'Lia está digitando...';
     fetch('olden-chat-enviar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessao: estado.sessao, mensagem: texto }) })
       .then(function (r) { return r.json(); })
-      .then(function (j) { adicionar({ de: 'lia', texto: j.resposta || 'Desculpa, tive um probleminha aqui. Pode repetir?' }); })
+      .then(function (j) { adicionar({ de: 'lia', texto: j.resposta || 'Desculpa, tive um probleminha aqui. Pode repetir?', blocos: j.blocos || [] }); })
       .catch(function () { adicionar({ de: 'lia', texto: 'Desculpa, tive um probleminha aqui. Pode repetir?' }); })
       .then(function () { botao.disabled = false; digitando.textContent = ''; input.focus(); });
-  });
+  }
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); var t = input.value; input.value = ''; enviar(t); });
 
-  // Mensagens que a Lia manda por iniciativa própria (ex.: pagamento aprovado)
+  // Mensagens que a Lia manda por iniciativa própria (pagamento aprovado, rastreio)
   function buscarNovas() {
     fetch('olden-chat-novas?s=' + encodeURIComponent(estado.sessao) + '&depois=' + estado.ultimo)
       .then(function (r) { return r.json(); })

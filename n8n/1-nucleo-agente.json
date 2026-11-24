@@ -144,7 +144,7 @@
         "text": "={{ $json.mensagem }}",
         "options": {
           "systemMessage": "={{ $json.prompt_sistema }}",
-          "maxIterations": 8
+          "maxIterations": 10
         }
       }
     },
@@ -193,11 +193,11 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre um produto específico do catálogo.",
+        "toolDescription": "Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre uma peça específica.",
         "operation": "executeQuery",
         "query": "insert into interesses (conversa_id, sku)\nselect (j->>'conversa_id')::uuid, j->>'sku'\nfrom (select $1::jsonb as j) p\nreturning 'interesse registrado' as resultado, sku;",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, sku: $fromAI('sku', 'SKU do produto exatamente como no catálogo, ex.: CEL-BR', 'string') }) }}"
+          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, sku: $fromAI('sku', 'Código do modelo (OLD-P...) ou do tamanho (OLD-...) que veio da busca', 'string') }) }}"
         }
       }
     },
@@ -216,7 +216,7 @@
         "operation": "executeQuery",
         "query": "insert into pedidos (conversa_id, sku, tamanho, quantidade, forma_pagamento, nome_cliente)\nselect (j->>'conversa_id')::uuid, j->>'sku', j->>'tamanho', (j->>'quantidade')::int,\n       j->>'forma_pagamento', j->>'nome_cliente'\nfrom (select $1::jsonb as j) p\nreturning sku, tamanho, quantidade, forma_pagamento, valor_unitario, valor_total, status;",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, sku: $fromAI('sku', 'SKU do produto exatamente como no catálogo', 'string'), tamanho: $fromAI('tamanho', 'Tamanho exatamente como no catálogo, ex.: M, GG, 8, ÚNICO, 9 MESES', 'string'), quantidade: $fromAI('quantidade', 'Quantidade de peças, de 1 a 10', 'number'), forma_pagamento: $fromAI('forma_pagamento', 'pix ou cartao', 'string'), nome_cliente: $fromAI('nome_cliente', 'Nome do cliente', 'string') }) }}"
+          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, sku: $fromAI('sku', 'Código do TAMANHO escolhido (OLD-...), copiado da busca; se só tiver o do modelo (OLD-P...), use ele e informe o tamanho', 'string'), tamanho: $fromAI('tamanho', 'Tamanho escolhido exatamente como veio na busca, ex.: M, GG, 4-8, Único', 'string'), quantidade: $fromAI('quantidade', 'Quantidade de peças, de 1 a 10', 'number'), forma_pagamento: $fromAI('forma_pagamento', 'pix ou cartao', 'string'), nome_cliente: $fromAI('nome_cliente', 'Nome do cliente', 'string') }) }}"
         }
       }
     },
@@ -256,6 +256,87 @@
         "options": {
           "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id }) }}"
         }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000013",
+      "name": "buscar_produtos",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1420,
+        260
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço, preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.",
+        "operation": "executeQuery",
+        "query": "select * from buscar_produtos($1::jsonb->>'consulta',\n  coalesce(nullif($1::jsonb->>'filtros', '')::jsonb, '{}'::jsonb),\n  coalesce(($1::jsonb->>'limite')::int, 5))",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ consulta: $fromAI('consulta', 'O que o cliente procura, em palavras simples (ex.: camisa verde feminina do Palmeiras). Pode ficar vazio se só usar filtros', 'string'), filtros: $fromAI('filtros', 'JSON com filtros opcionais: departamento (camisas, bones, calcados, equipamentos, roupas, acessorios, kits, bebe, infantil, outros), clube (ex.: Palmeiras), genero (masculino, feminino, unissex, infantil), faixa_etaria (adulto, infantil, bebe), tamanho (ex.: M), preco_max (número). Use {} se não houver filtro', 'string'), limite: $fromAI('limite', 'Quantos modelos trazer, de 1 a 10 (normalmente 5)', 'number') }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000014",
+      "name": "ver_vitrine",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1580,
+        260
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Mostra os produtos de uma vitrine montada pela loja (ex.: promocoes, destaques, palmeiras). Devolve o mesmo formato de buscar_produtos.",
+        "operation": "executeQuery",
+        "query": "select * from itens_vitrine($1::jsonb->>'nome', coalesce(($1::jsonb->>'limite')::int, 10))",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ nome: $fromAI('nome', 'Nome da vitrine, ex.: promocoes', 'string'), limite: $fromAI('limite', 'Quantos produtos trazer, de 1 a 30', 'number') }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000015",
+      "name": "Ler blocos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Lê a resposta da Lia: um JSON {\"blocos\": [...]}. Se vier texto solto, vira um bloco de texto.\nconst bruto = String($json.output ?? '');\nconst problemas = [];\nconst tentar = (t) => { try { const j = JSON.parse(t); return Array.isArray(j) ? j : (j && Array.isArray(j.blocos) ? j.blocos : null); } catch (e) { return null; } };\nlet t = bruto.trim().replace(/^\\`\\`\\`(?:json)?\\\\s*/i, '').replace(/\\`\\`\\`\\\\s*$/, '');\nlet blocos = tentar(t);\nif (!blocos) { const i = t.indexOf('{'), f = t.lastIndexOf('}'); if (i >= 0 && f > i) blocos = tentar(t.slice(i, f + 1)); }\nif (!blocos && t.startsWith('{')) {\n  // JSON quebrado: aproveita os textos que der para ler, sem mostrar código ao cliente\n  const textos = [...t.matchAll(/\"(?:texto|corpo)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"/g)].map((m) => { try { return JSON.parse('\"' + m[1] + '\"'); } catch (e) { return ''; } }).filter(Boolean);\n  blocos = [{ tipo: 'texto', texto: textos.join('\\n\\n') || 'Desculpa, me enrolei aqui. Pode repetir?' }];\n  problemas.push('resposta não era um JSON válido');\n}\nif (!blocos) {\n  blocos = [{ tipo: 'texto', texto: bruto }];\n  problemas.push('resposta veio em texto, não em blocos');\n}\nconst skus = [];\nfor (const b of blocos) {\n  if (!b || typeof b !== 'object') continue;\n  if (b.sku) skus.push(b.sku);\n  for (const s of (b.skus || [])) skus.push(s);\n  for (const sec of (b.secoes || [])) for (const s of (sec.skus || [])) skus.push(s);\n}\nreturn [{ json: { blocos, problemas, skus: [...new Set(skus.map((s) => String(s).trim().toUpperCase()))] } }];"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000016",
+      "name": "Conferir produtos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1180,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select produtos_para_blocos($1::jsonb) as produtos",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.skus) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000017",
+      "name": "Validar blocos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Confere os limites do WhatsApp e se cada produto existe e tem estoque; produto ruim sai, bloco ruim vira texto.\nconst lidos = $('Ler blocos').first().json;\nconst prods = $json.produtos || {};\nconst problemas = [...lidos.problemas];\nconst corta = (s, n) => { s = String(s ?? '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };\nconst filtra = (lista, onde) => {\n  const bons = [];\n  for (const s of (lista || [])) {\n    const k = String(s || '').trim().toUpperCase();\n    if (prods[k] && prods[k].disponivel) bons.push(k); else problemas.push(onde + ': código ' + s + ' não existe ou está esgotado');\n  }\n  return [...new Set(bons)];\n};\nconst saida = [];\nfor (const b of lidos.blocos) {\n  const tipo = b && b.tipo;\n  if (tipo === 'texto') {\n    if ((b.botoes || []).length > 3) problemas.push('texto: mais de 3 botões');\n    const botoes = (b.botoes || []).slice(0, 3).map((x, i) => ({ id: corta(x.id || ('b' + i), 200), titulo: corta(x.titulo, 20) })).filter((x) => x.titulo);\n    if (b.texto) saida.push({ tipo, texto: String(b.texto), botoes });\n  } else if (tipo === 'menu') {\n    if ((b.opcoes || []).length > 10) problemas.push('menu: mais de 10 opções');\n    const opcoes = (b.opcoes || []).slice(0, 10).map((o, i) => ({ id: corta(o.id || ('op' + i), 200), titulo: corta(o.titulo, 24), descricao: o.descricao ? corta(o.descricao, 72) : '' })).filter((o) => o.titulo);\n    if (opcoes.length) saida.push({ tipo, corpo: String(b.corpo || 'Escolha uma opção'), botao: corta(b.botao || 'Ver opções', 20), opcoes });\n  } else if (tipo === 'produto' || tipo === 'midias') {\n    const s = filtra([b.sku], tipo);\n    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });\n  } else if (tipo === 'carrossel_produtos') {\n    let s = filtra(b.skus, tipo);\n    if (s.length > 10) { problemas.push('carrossel: mais de 10 peças'); s = s.slice(0, 10); }\n    if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.corpo || ''), produto: prods[s[0]] });\n    else if (s.length >= 2) saida.push({ tipo, corpo: String(b.corpo || ''), skus: s, produtos: s.map((x) => prods[x]) });\n  } else if (tipo === 'vitrine') {\n    let total = 0; const secoes = [];\n    if ((b.secoes || []).length > 10) problemas.push('vitrine: mais de 10 seções');\n    for (const sec of (b.secoes || []).slice(0, 10)) {\n      const s = filtra(sec.skus, 'vitrine').slice(0, Math.max(0, 30 - total));\n      total += s.length;\n      if (s.length) secoes.push({ titulo: corta(sec.titulo || 'Seção', 24), skus: s, produtos: s.map((x) => prods[x]) });\n    }\n    if (secoes.length) saida.push({ tipo, cabecalho: corta(b.cabecalho || 'Vitrine', 60), corpo: String(b.corpo || ''), secoes });\n  } else if (tipo === 'catalogo') {\n    saida.push({ tipo, corpo: String(b.corpo || 'Veja o catálogo completo') });\n  } else if (tipo === 'pagamento') {\n    const url = String(b.url || '');\n    if (/\\/webhook\\/olden-pagamento\\?t=/.test(url)) saida.push({ tipo, texto: String(b.texto || 'Pague por aqui'), url });\n    else { problemas.push('pagamento: link inválido'); if (b.texto) saida.push({ tipo: 'texto', texto: String(b.texto), botoes: [] }); }\n  } else {\n    problemas.push('bloco desconhecido: ' + tipo);\n    const t = b && (b.texto || b.corpo);\n    if (t) saida.push({ tipo: 'texto', texto: String(t), botoes: [] });\n  }\n}\nif (!saida.length) { saida.push({ tipo: 'texto', texto: 'Desculpa, me enrolei aqui. Pode repetir?', botoes: [] }); problemas.push('nenhum bloco válido'); }\n\n// Versão em texto (para quem não desenha blocos: bateria, avisos guardados, testes)\nconst brl = (v) => (v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));\nconst linha = (p) => '• ' + p.nome + ' — ' + brl(p.preco) + ' (Pix ' + brl(p.preco_pix) + ')' + (p.tamanhos ? ' · tam. ' + p.tamanhos.join(', ') : '');\nconst partes = saida.map((b) => {\n  switch (b.tipo) {\n    case 'texto': return b.texto + (b.botoes.length ? '\\n[' + b.botoes.map((x) => x.titulo).join('] [') + ']' : '');\n    case 'menu': return b.corpo + '\\n' + b.opcoes.map((o) => '• ' + o.titulo).join('\\n');\n    case 'produto': return (b.texto ? b.texto + '\\n' : '') + linha(b.produto);\n    case 'midias': return (b.texto ? b.texto + '\\n' : '') + '[fotos de ' + b.produto.nome + ']';\n    case 'carrossel_produtos': return (b.corpo ? b.corpo + '\\n' : '') + b.produtos.map(linha).join('\\n');\n    case 'vitrine': return b.cabecalho + (b.corpo ? '\\n' + b.corpo : '') + '\\n' + b.secoes.map((s) => s.titulo + ':\\n' + s.produtos.map(linha).join('\\n')).join('\\n');\n    case 'catalogo': return b.corpo + ' [Ver catálogo]';\n    case 'pagamento': return b.texto + '\\n' + b.url;\n  }\n  return '';\n});\nreturn [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: problemas } }];"
       }
     }
   ],
@@ -383,6 +464,61 @@
           {
             "node": "Agente Olden",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buscar_produtos": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Olden",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ver_vitrine": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Olden",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Olden": {
+      "main": [
+        [
+          {
+            "node": "Ler blocos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler blocos": {
+      "main": [
+        [
+          {
+            "node": "Conferir produtos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir produtos": {
+      "main": [
+        [
+          {
+            "node": "Validar blocos",
+            "type": "main",
             "index": 0
           }
         ]

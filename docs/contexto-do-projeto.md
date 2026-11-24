@@ -41,7 +41,8 @@ O próximo passo em discussão é **oferecer a solução à loja oficial da Olde
 | Fotos dos produtos | Estrutura pronta; links das fotos não cadastrados |
 | WhatsApp | Não conectado (provedor ainda não escolhido) |
 | Pagamento e rastreio reais | Não conectados (fictícios no teste) |
-| Catálogo completo da loja oficial | 961 modelos e 3.623 tamanhos coletados do site (Tray) e carregáveis no Supabase, com a busca `buscar_produtos`; a Lia ainda não usa |
+| Catálogo completo da loja oficial | 961 modelos e 3.623 tamanhos coletados do site (Tray), com a busca `buscar_produtos` |
+| Lia com catálogo completo e respostas em blocos (passo 3 do guia) | Implementado e testado localmente com modelo simulado; a validar com o Claude real |
 
 ---
 

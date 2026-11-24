@@ -50,6 +50,105 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       options: { queryReplacement: `={{ JSON.stringify({ ${payload} }) }}` },
     },
   });
+const LER_BLOCOS = `// Lê a resposta da Lia: um JSON {"blocos": [...]}. Se vier texto solto, vira um bloco de texto.
+const bruto = String($json.output ?? '');
+const problemas = [];
+const tentar = (t) => { try { const j = JSON.parse(t); return Array.isArray(j) ? j : (j && Array.isArray(j.blocos) ? j.blocos : null); } catch (e) { return null; } };
+let t = bruto.trim().replace(/^\\\`\\\`\\\`(?:json)?\\\\s*/i, '').replace(/\\\`\\\`\\\`\\\\s*$/, '');
+let blocos = tentar(t);
+if (!blocos) { const i = t.indexOf('{'), f = t.lastIndexOf('}'); if (i >= 0 && f > i) blocos = tentar(t.slice(i, f + 1)); }
+if (!blocos && t.startsWith('{')) {
+  // JSON quebrado: aproveita os textos que der para ler, sem mostrar código ao cliente
+  const textos = [...t.matchAll(/"(?:texto|corpo)"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/g)].map((m) => { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return ''; } }).filter(Boolean);
+  blocos = [{ tipo: 'texto', texto: textos.join('\\n\\n') || 'Desculpa, me enrolei aqui. Pode repetir?' }];
+  problemas.push('resposta não era um JSON válido');
+}
+if (!blocos) {
+  blocos = [{ tipo: 'texto', texto: bruto }];
+  problemas.push('resposta veio em texto, não em blocos');
+}
+const skus = [];
+for (const b of blocos) {
+  if (!b || typeof b !== 'object') continue;
+  if (b.sku) skus.push(b.sku);
+  for (const s of (b.skus || [])) skus.push(s);
+  for (const sec of (b.secoes || [])) for (const s of (sec.skus || [])) skus.push(s);
+}
+return [{ json: { blocos, problemas, skus: [...new Set(skus.map((s) => String(s).trim().toUpperCase()))] } }];`;
+
+const VALIDAR_BLOCOS = `// Confere os limites do WhatsApp e se cada produto existe e tem estoque; produto ruim sai, bloco ruim vira texto.
+const lidos = $('Ler blocos').first().json;
+const prods = $json.produtos || {};
+const problemas = [...lidos.problemas];
+const corta = (s, n) => { s = String(s ?? '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+const filtra = (lista, onde) => {
+  const bons = [];
+  for (const s of (lista || [])) {
+    const k = String(s || '').trim().toUpperCase();
+    if (prods[k] && prods[k].disponivel) bons.push(k); else problemas.push(onde + ': código ' + s + ' não existe ou está esgotado');
+  }
+  return [...new Set(bons)];
+};
+const saida = [];
+for (const b of lidos.blocos) {
+  const tipo = b && b.tipo;
+  if (tipo === 'texto') {
+    if ((b.botoes || []).length > 3) problemas.push('texto: mais de 3 botões');
+    const botoes = (b.botoes || []).slice(0, 3).map((x, i) => ({ id: corta(x.id || ('b' + i), 200), titulo: corta(x.titulo, 20) })).filter((x) => x.titulo);
+    if (b.texto) saida.push({ tipo, texto: String(b.texto), botoes });
+  } else if (tipo === 'menu') {
+    if ((b.opcoes || []).length > 10) problemas.push('menu: mais de 10 opções');
+    const opcoes = (b.opcoes || []).slice(0, 10).map((o, i) => ({ id: corta(o.id || ('op' + i), 200), titulo: corta(o.titulo, 24), descricao: o.descricao ? corta(o.descricao, 72) : '' })).filter((o) => o.titulo);
+    if (opcoes.length) saida.push({ tipo, corpo: String(b.corpo || 'Escolha uma opção'), botao: corta(b.botao || 'Ver opções', 20), opcoes });
+  } else if (tipo === 'produto' || tipo === 'midias') {
+    const s = filtra([b.sku], tipo);
+    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
+  } else if (tipo === 'carrossel_produtos') {
+    let s = filtra(b.skus, tipo);
+    if (s.length > 10) { problemas.push('carrossel: mais de 10 peças'); s = s.slice(0, 10); }
+    if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.corpo || ''), produto: prods[s[0]] });
+    else if (s.length >= 2) saida.push({ tipo, corpo: String(b.corpo || ''), skus: s, produtos: s.map((x) => prods[x]) });
+  } else if (tipo === 'vitrine') {
+    let total = 0; const secoes = [];
+    if ((b.secoes || []).length > 10) problemas.push('vitrine: mais de 10 seções');
+    for (const sec of (b.secoes || []).slice(0, 10)) {
+      const s = filtra(sec.skus, 'vitrine').slice(0, Math.max(0, 30 - total));
+      total += s.length;
+      if (s.length) secoes.push({ titulo: corta(sec.titulo || 'Seção', 24), skus: s, produtos: s.map((x) => prods[x]) });
+    }
+    if (secoes.length) saida.push({ tipo, cabecalho: corta(b.cabecalho || 'Vitrine', 60), corpo: String(b.corpo || ''), secoes });
+  } else if (tipo === 'catalogo') {
+    saida.push({ tipo, corpo: String(b.corpo || 'Veja o catálogo completo') });
+  } else if (tipo === 'pagamento') {
+    const url = String(b.url || '');
+    if (/\\/webhook\\/olden-pagamento\\?t=/.test(url)) saida.push({ tipo, texto: String(b.texto || 'Pague por aqui'), url });
+    else { problemas.push('pagamento: link inválido'); if (b.texto) saida.push({ tipo: 'texto', texto: String(b.texto), botoes: [] }); }
+  } else {
+    problemas.push('bloco desconhecido: ' + tipo);
+    const t = b && (b.texto || b.corpo);
+    if (t) saida.push({ tipo: 'texto', texto: String(t), botoes: [] });
+  }
+}
+if (!saida.length) { saida.push({ tipo: 'texto', texto: 'Desculpa, me enrolei aqui. Pode repetir?', botoes: [] }); problemas.push('nenhum bloco válido'); }
+
+// Versão em texto (para quem não desenha blocos: bateria, avisos guardados, testes)
+const brl = (v) => (v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));
+const linha = (p) => '• ' + p.nome + ' — ' + brl(p.preco) + ' (Pix ' + brl(p.preco_pix) + ')' + (p.tamanhos ? ' · tam. ' + p.tamanhos.join(', ') : '');
+const partes = saida.map((b) => {
+  switch (b.tipo) {
+    case 'texto': return b.texto + (b.botoes.length ? '\\n[' + b.botoes.map((x) => x.titulo).join('] [') + ']' : '');
+    case 'menu': return b.corpo + '\\n' + b.opcoes.map((o) => '• ' + o.titulo).join('\\n');
+    case 'produto': return (b.texto ? b.texto + '\\n' : '') + linha(b.produto);
+    case 'midias': return (b.texto ? b.texto + '\\n' : '') + '[fotos de ' + b.produto.nome + ']';
+    case 'carrossel_produtos': return (b.corpo ? b.corpo + '\\n' : '') + b.produtos.map(linha).join('\\n');
+    case 'vitrine': return b.cabecalho + (b.corpo ? '\\n' + b.corpo : '') + '\\n' + b.secoes.map((s) => s.titulo + ':\\n' + s.produtos.map(linha).join('\\n')).join('\\n');
+    case 'catalogo': return b.corpo + ' [Ver catálogo]';
+    case 'pagamento': return b.texto + '\\n' + b.url;
+  }
+  return '';
+});
+return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: problemas } }];`;
+
   const C = '$json.conversa_id';
   const nodes = [
     {
@@ -101,7 +200,7 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       parameters: {
         promptType: 'define', text: '={{ $json.mensagem }}',
         // O prompt vem do banco (tabela prompt_agente, versão ativa), já com os dados da conversa
-        options: { systemMessage: '={{ $json.prompt_sistema }}', maxIterations: 8 },
+        options: { systemMessage: '={{ $json.prompt_sistema }}', maxIterations: 10 },
       },
     },
     openRouter('Claude via OpenRouter', [440, 260], '={{ $json.modelo }}', '={{ $json.esforco }}'),
@@ -114,13 +213,13 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       },
     },
     tool('registrar_interesse', [780, 260],
-      'Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre um produto específico do catálogo.',
+      'Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre uma peça específica.',
       "insert into interesses (conversa_id, sku)\nselect (j->>'conversa_id')::uuid, j->>'sku'\nfrom (select $1::jsonb as j) p\nreturning 'interesse registrado' as resultado, sku;",
-      `conversa_id: ${C}, sku: $fromAI('sku', 'SKU do produto exatamente como no catálogo, ex.: CEL-BR', 'string')`),
+      `conversa_id: ${C}, sku: $fromAI('sku', 'Código do modelo (OLD-P...) ou do tamanho (OLD-...) que veio da busca', 'string')`),
     tool('registrar_pedido', [940, 260],
       'Registra (reserva) um item do pedido e baixa o estoque. Só chame depois que o cliente confirmar produto, tamanho, quantidade, forma de pagamento e nome. Chame uma vez por produto/tamanho. O banco calcula o valor; se faltar estoque, devolve erro.',
       "insert into pedidos (conversa_id, sku, tamanho, quantidade, forma_pagamento, nome_cliente)\nselect (j->>'conversa_id')::uuid, j->>'sku', j->>'tamanho', (j->>'quantidade')::int,\n       j->>'forma_pagamento', j->>'nome_cliente'\nfrom (select $1::jsonb as j) p\nreturning sku, tamanho, quantidade, forma_pagamento, valor_unitario, valor_total, status;",
-      `conversa_id: ${C}, sku: $fromAI('sku', 'SKU do produto exatamente como no catálogo', 'string'), tamanho: $fromAI('tamanho', 'Tamanho exatamente como no catálogo, ex.: M, GG, 8, ÚNICO, 9 MESES', 'string'), quantidade: $fromAI('quantidade', 'Quantidade de peças, de 1 a 10', 'number'), forma_pagamento: $fromAI('forma_pagamento', 'pix ou cartao', 'string'), nome_cliente: $fromAI('nome_cliente', 'Nome do cliente', 'string')`),
+      `conversa_id: ${C}, sku: $fromAI('sku', 'Código do TAMANHO escolhido (OLD-...), copiado da busca; se só tiver o do modelo (OLD-P...), use ele e informe o tamanho', 'string'), tamanho: $fromAI('tamanho', 'Tamanho escolhido exatamente como veio na busca, ex.: M, GG, 4-8, Único', 'string'), quantidade: $fromAI('quantidade', 'Quantidade de peças, de 1 a 10', 'number'), forma_pagamento: $fromAI('forma_pagamento', 'pix ou cartao', 'string'), nome_cliente: $fromAI('nome_cliente', 'Nome do cliente', 'string')`),
     tool('registrar_avaliacao', [1100, 260],
       'Registra a avaliação do atendimento (nota de 1 a 5 e comentário opcional) e encerra a conversa. Chame quando o cliente der a nota.',
       "insert into avaliacoes (conversa_id, nota, comentario)\nselect (j->>'conversa_id')::uuid, (j->>'nota')::int, nullif(j->>'comentario', '')\nfrom (select $1::jsonb as j) p\nreturning 'avaliacao registrada' as resultado, nota;",
@@ -129,6 +228,17 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
       'Gera o link de pagamento de todos os itens já registrados nesta conversa e devolve o link e o valor total. Chame depois de registrar o(s) item(ns) com registrar_pedido, ou quando o cliente precisar de um novo link (ex.: pagamento recusado). Envie ao cliente exatamente o link devolvido.',
       "select gerar_pagamento(($1::jsonb->>'conversa_id')::uuid) as resultado",
       `conversa_id: ${C}`),
+    tool('buscar_produtos', [1420, 260],
+      'Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço, preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.',
+      "select * from buscar_produtos($1::jsonb->>'consulta',\n  coalesce(nullif($1::jsonb->>'filtros', '')::jsonb, '{}'::jsonb),\n  coalesce(($1::jsonb->>'limite')::int, 5))",
+      `consulta: $fromAI('consulta', 'O que o cliente procura, em palavras simples (ex.: camisa verde feminina do Palmeiras). Pode ficar vazio se só usar filtros', 'string'), filtros: $fromAI('filtros', 'JSON com filtros opcionais: departamento (camisas, bones, calcados, equipamentos, roupas, acessorios, kits, bebe, infantil, outros), clube (ex.: Palmeiras), genero (masculino, feminino, unissex, infantil), faixa_etaria (adulto, infantil, bebe), tamanho (ex.: M), preco_max (número). Use {} se não houver filtro', 'string'), limite: $fromAI('limite', 'Quantos modelos trazer, de 1 a 10 (normalmente 5)', 'number')`),
+    tool('ver_vitrine', [1580, 260],
+      'Mostra os produtos de uma vitrine montada pela loja (ex.: promocoes, destaques, palmeiras). Devolve o mesmo formato de buscar_produtos.',
+      "select * from itens_vitrine($1::jsonb->>'nome', coalesce(($1::jsonb->>'limite')::int, 10))",
+      `nome: $fromAI('nome', 'Nome da vitrine, ex.: promocoes', 'string'), limite: $fromAI('limite', 'Quantos produtos trazer, de 1 a 30', 'number')`),
+    code('Ler blocos', [960, 0], LER_BLOCOS),
+    pg('Conferir produtos', [1180, 0], 'select produtos_para_blocos($1::jsonb) as produtos', '={{ JSON.stringify($json.skus) }}'),
+    code('Validar blocos', [1400, 0], VALIDAR_BLOCOS),
   ];
   const connections = {
     Entrada: main('Configuração'),
@@ -142,6 +252,11 @@ const openRouter = (name, position, modelExpr, effortExpr) => ({
     registrar_pedido: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     registrar_avaliacao: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     gerar_link_pagamento: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    buscar_produtos: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    ver_vitrine: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    'Agente Olden': main('Ler blocos'),
+    'Ler blocos': main('Conferir produtos'),
+    'Conferir produtos': main('Validar blocos'),
   };
   save('1-nucleo-agente.json', {
     name: 'Olden | 1. Núcleo do agente', nodes, connections, pinData: {},
@@ -237,7 +352,7 @@ const NUCLEO = { __rl: true, mode: 'list', value: '' }; // escolhido no n8n depo
       position: [480, 460],
       parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
     },
-    responderJson('Responder mensagem', [720, 460], '={{ JSON.stringify({ resposta: $json.output }) }}'),
+    responderJson('Responder mensagem', [720, 460], '={{ JSON.stringify({ resposta: $json.output, blocos: $json.blocos || [] }) }}'),
 
     {
       id: id(), name: 'Buscar mensagens novas', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 660],
@@ -315,7 +430,11 @@ const turnos = $('Turnos do cenário').all();
 const respostas = $input.all();
 const transcricao = turnos.map((t, i) => {
   const r = respostas[i] ? respostas[i].json : {};
-  return { cliente: t.json.mensagem, agente: r.output ?? ('[ERRO] ' + JSON.stringify(r.error ?? r)) };
+  const blocos = r.blocos || [];
+  const pecas = blocos.reduce((n, b) => n + (b.tipo === 'produto' ? 1 : b.tipo === 'carrossel_produtos' ? (b.skus || []).length
+    : b.tipo === 'vitrine' ? (b.secoes || []).reduce((m, s) => m + (s.skus || []).length, 0) : 0), 0);
+  return { cliente: t.json.mensagem, agente: r.output ?? ('[ERRO] ' + JSON.stringify(r.error ?? r)),
+           blocos: blocos.map((b) => b.tipo), pecas, problemas: r.validacao || [] };
 });
 return [{ json: { ...combo, transcricao, duracao_ms: Date.now() - turnos[0].json.inicio } }];`;
 
@@ -326,6 +445,12 @@ const chk = [];
 const add = (nome, ok, detalhe) => chk.push({ nome, ok, detalhe });
 const norm = (v) => String(v ?? '').trim().toUpperCase();
 
+const simples = (v) => String(v ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+if (e.interesses_nomes) {
+  const nomes = (f.interesses || []).map(simples);
+  const falta = e.interesses_nomes.filter((x) => !nomes.some((n) => n.includes(simples(x))));
+  add('interesses', falta.length === 0, falta.length ? 'faltou registrar: ' + falta.join(', ') : 'ok');
+}
 if (e.interesses_incluem) {
   const falta = e.interesses_incluem.filter((s) => !(f.interesses || []).includes(s));
   add('interesses', falta.length === 0, falta.length ? 'faltou registrar: ' + falta.join(', ') : 'ok');
@@ -336,7 +461,9 @@ if (e.pedidos_qtd !== undefined) {
 }
 if (e.pedido) {
   const p = (f.pedidos || [])[0] || {};
-  const dif = ['sku', 'tamanho', 'quantidade', 'forma_pagamento'].filter((k) => norm(p[k]) !== norm(e.pedido[k]));
+  const campos = e.pedido.nome_contem ? ['tamanho', 'quantidade', 'forma_pagamento'] : ['sku', 'tamanho', 'quantidade', 'forma_pagamento'];
+  const dif = campos.filter((k) => norm(p[k]) !== norm(e.pedido[k]));
+  if (e.pedido.nome_contem && !simples(p.produto).includes(simples(e.pedido.nome_contem))) dif.push('produto');
   add('dados do pedido', dif.length === 0, dif.length ? 'diferente em: ' + dif.map((k) => k + ' (' + (p[k] ?? 'nada') + ')').join(', ') : 'ok');
 }
 if (e.avaliacao_nota !== undefined) {
@@ -355,6 +482,16 @@ if (e.rastreio_no_texto !== undefined) {
   add('código de rastreio', e.rastreio_no_texto ? enviou : (!enviou && !inventou),
     e.rastreio_no_texto ? (enviou ? 'enviado ' + cod : 'não enviou o código ' + (cod || '(nenhum gerado)')) : (inventou ? 'citou um código que não existe' : 'ok'));
 }
+const tipos = new Set(c.transcricao.flatMap((t) => t.blocos || []));
+if (e.blocos_incluem) {
+  const falta = e.blocos_incluem.filter((x) => !tipos.has(x));
+  add('blocos esperados', falta.length === 0, falta.length ? 'faltou bloco: ' + falta.join(', ') : 'ok');
+}
+if (e.blocos_incluem_um) add('blocos esperados', e.blocos_incluem_um.some((x) => tipos.has(x)), 'precisava de um destes: ' + e.blocos_incluem_um.join(', ') + '; veio: ' + ([...tipos].join(', ') || 'nenhum'));
+const formato = c.transcricao.flatMap((t, i) => (t.problemas || []).map((p) => 'turno ' + (i + 1) + ': ' + p));
+add('formato dos blocos', formato.length === 0, formato.length ? formato.slice(0, 5).join('; ') : 'ok');
+const excesso = c.transcricao.filter((t) => (t.pecas || 0) > 5 && !/tudo|todos|todas|catalogo|catálogo|mais op/i.test(t.cliente));
+add('no máximo 5 peças por vez', excesso.length === 0, excesso.length ? excesso.length + ' resposta(s) com mais de 5 peças sem o cliente pedir' : 'ok');
 const erros = c.transcricao.filter((t) => String(t.agente).startsWith('[ERRO]')).length;
 add('execução sem erro', erros === 0, erros ? erros + ' turno(s) com erro' : 'ok');
 
@@ -373,6 +510,8 @@ CONVERSA:
 {{ $json.transcricao.map((t, i) => 'Turno ' + (i + 1) + '\\nCLIENTE: ' + t.cliente + '\\nAGENTE: ' + t.agente).join('\\n\\n') }}
 
 Turnos em que o CLIENTE aparece como "#pagamento_aprovado", "#pagamento_recusado" ou "#pagamento_rastreio_avancou" não são falas do cliente: é o sistema da loja avisando o agente sobre o pagamento ou sobre uma etapa nova da entrega. A resposta do AGENTE nesses turnos é uma mensagem que ele mandou ao cliente por iniciativa própria; avalie se ela avisa corretamente o que aconteceu.
+
+As respostas do AGENTE aparecem para o cliente como blocos visuais (cartões de produto com foto, preço e Pix; carrosséis; menus; botões). Na conversa abaixo, os cartões aparecem como linhas "• nome — preço (Pix ...)" e os botões entre colchetes. Avalie também a curadoria: no máximo 5 peças por vez (salvo se o cliente pedir para ver tudo), produtos coerentes com o pedido e texto curto.
 
 LINKS E CÓDIGOS: o link de pagamento e o código de rastreio (formato OLD-TESTE-000000) são fictícios e corretos de usar. O agente nunca pode inventar um código de rastreio, confirmar um pagamento que não consta como aprovado no banco, nem inventar prazo de entrega.
 
@@ -517,7 +656,7 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
   const nodes = [
     webhook('Página de pagamento', [0, 0], 'olden-pagamento', 'GET', 'd4e5f6a7-1b2c-4d3e-8f90-a1b2c3d4e5f6'),
     pg('Buscar pagamento', [220, 0],
-      "select pg.token, pg.status, brl(pg.valor) as valor, pg.codigo_rastreio, cl.nome,\n  (select jsonb_agg(p.quantidade || 'x ' || pr.nome || ' (tam. ' || p.tamanho || ')' order by p.criado_em)\n     from pedidos p join produtos pr on pr.sku = p.sku where p.conversa_id = pg.conversa_id) as itens\nfrom pagamentos pg\njoin conversas c on c.id = pg.conversa_id\njoin clientes cl on cl.id = c.cliente_id\nwhere pg.token = $1",
+      "select pg.token, pg.status, brl(pg.valor) as valor, pg.codigo_rastreio, cl.nome,\n  (select jsonb_agg(p.quantidade || 'x ' || nome_produto(p.sku) || ' (tam. ' || p.tamanho || ')' order by p.criado_em)\n     from pedidos p where p.conversa_id = pg.conversa_id) as itens\nfrom pagamentos pg\njoin conversas c on c.id = pg.conversa_id\njoin clientes cl on cl.id = c.cliente_id\nwhere pg.token = $1",
       "={{ $json.query.t || '' }}", { alwaysOutputData: true }),
     code('Montar página de pagamento', [440, 0], HTML_PAGAMENTO),
     responder('Responder pagamento', [660, 0]),
