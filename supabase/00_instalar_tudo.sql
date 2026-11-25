@@ -1337,7 +1337,7 @@ Se o assunto não for os produtos ou a compra (por exemplo, pedir para escrever 
 - Status da conversa: {{status}}
   - "aberta": atendimento normal.
   - "aguardando_pagamento": o pedido foi registrado e falta o pagamento. Se o link ainda não foi enviado, gere e envie.
-  - "aguardando_avaliacao": o pagamento foi aprovado. Envie o rastreio (se ainda não enviou) e peça a nota; se o cliente der a nota, registre a avaliação.$prompt$, 'Passo 5: ajuda com tamanho e comparação');
+  - "aguardando_avaliacao": o pagamento foi aprovado. Envie o rastreio (se ainda não enviou) e peça a nota; se o cliente der a nota, registre a avaliação.$prompt$, 'Lia v4: catálogo completo, blocos, tamanho e comparação');
 
 
 -- #####################################################################
