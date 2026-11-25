@@ -200,6 +200,8 @@ form button:disabled{opacity:.5}
       });
       comp.appendChild(cols); box.appendChild(comp);
       box.appendChild(botoesAcao((b.produtos || []).map(function (p) { return { titulo: 'Quero ' + p.nome.split(' - ')[0] }; }), function (x) { enviar(x.titulo); }));
+    } else if (b.tipo === 'provador') {
+      box.appendChild(el('div', 'm lia', formatar((b.texto ? b.texto + '\n' : '') + '📸 No WhatsApp, aqui chega a prévia de você vestindo a ' + (b.produto || {}).nome + '.')));
     } else if (b.tipo === 'catalogo') {
       box.appendChild(el('div', 'm lia', formatar(b.corpo)));
       box.appendChild(botoesAcao([{ titulo: 'Ver catálogo' }], function () { enviar('Quero ver o catálogo completo'); }));

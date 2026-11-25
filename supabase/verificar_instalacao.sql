@@ -12,7 +12,7 @@ tabelas(ordem, nome, arquivo) as (values
   (9, 'cenarios_teste', '00 (04)'), (10, 'resultados_teste', '00 (04)'), (11, 'configuracao', '00 (06)'),
   (12, 'pagamentos', '00 (06)'), (13, 'mensagens_saida', '00 (07)'), (14, 'prompt_agente', '00 (08)'),
   (15, 'rastreio_avisos', '00 (09)'), (16, 'catalogo_produtos', '10'), (17, 'catalogo_variantes', '10'),
-  (18, 'vitrines', '10'), (19, 'tabela_medidas', '13')
+  (18, 'vitrines', '10'), (19, 'tabela_medidas', '13'), (20, 'whatsapp_mensagens', '14')
 ),
 funcoes(ordem, assinatura, arquivo) as (values
   (1, 'contexto_atendimento(text,text)', '00'), (2, 'catalogo_texto()', '00'), (3, 'limpar_testes()', '00'),
@@ -24,7 +24,8 @@ funcoes(ordem, assinatura, arquivo) as (values
   (16, 'f_unaccent(text)', '10'), (17, 'nome_produto(text)', '12'), (18, 'itens_vitrine(text,integer)', '12'),
   (19, 'produtos_para_blocos(jsonb)', '12'), (20, 'recomendar_tamanho(text,numeric,numeric,text,numeric)', '13'),
   (21, 'detalhes_produto(text)', '13'), (22, 'comparar_produtos(text,text)', '13'), (23, 'atributos_produto(text)', '13'),
-  (24, 'atualizar_tabela_medidas()', '13')
+  (24, 'atualizar_tabela_medidas()', '13'), (25, 'feed_catalogo_meta()', '14'), (26, 'avisos_whatsapp_pendentes()', '14'),
+  (27, 'ultima_foto_cliente(text)', '14'), (28, 'apagar_foto_cliente(bigint)', '14'), (29, 'limpar_whatsapp_teste(text)', '14')
 ),
 -- conta linhas só se a tabela existir (senão devolve null, sem dar erro)
 conta(nome, n) as (
@@ -49,6 +50,9 @@ prompt as (
          case when to_regclass('public.prompt_agente') is not null
               then (xpath('/row/t/text()', query_to_xml('select (texto like ''%recomendar_tamanho%'')::text as t from public.prompt_agente where ativo', false, true, '')))[1]::text
          end as tem_v4,
+         case when to_regclass('public.prompt_agente') is not null
+              then (xpath('/row/t/text()', query_to_xml('select (texto like ''%"provador"%'')::text as t from public.prompt_agente where ativo', false, true, '')))[1]::text
+         end as tem_v5,
          case when to_regclass('public.prompt_agente') is not null
               then (xpath('/row/t/text()', query_to_xml('select (texto like ''%buscar_produtos%'')::text as t from public.prompt_agente where ativo', false, true, '')))[1]::text
          end as tem_v3
@@ -93,10 +97,11 @@ linhas(grupo, ordem, item, ok, detalhe, arquivo) as (
   union all select '5. Configuração', 2, 'Minutos por etapa do rastreio',
          (select valor from config where chave = 'minutos_por_etapa_rastreio') is not null,
          coalesce((select valor from config where chave = 'minutos_por_etapa_rastreio'), 'não cadastrado'), '00 (09)'
-  union all select '5. Configuração', 3, 'Prompt ativo é a versão 4 (tamanho e comparação)',
-         (select tem_v4 from prompt) = 'true',
+  union all select '5. Configuração', 3, 'Prompt ativo tem o provador e o WhatsApp (v5)',
+         (select tem_v5 from prompt) = 'true',
          case when (select versao from prompt) is null then 'nenhuma versão ativa'
-              when (select tem_v4 from prompt) = 'true' then 'versão ' || (select versao from prompt)
+              when (select tem_v5 from prompt) = 'true' then 'versão ' || (select versao from prompt)
+              when (select tem_v4 from prompt) = 'true' then 'versão ' || (select versao from prompt) || ' (é a do passo 5, falta a do WhatsApp)'
               when (select tem_v3 from prompt) = 'true' then 'versão ' || (select versao from prompt) || ' (é a do passo 3, falta a do passo 5)'
               else 'versão ' || (select versao from prompt) || ' (antiga, sem catálogo completo)' end,
          'atualizar_prompt.sql'
@@ -104,6 +109,21 @@ linhas(grupo, ordem, item, ok, detalhe, arquivo) as (
          not exists (select 1 from pg_constraint where contype = 'f' and conrelid = to_regclass('public.pedidos')
                       and confrelid = to_regclass('public.produtos')),
          null, '12'
+  union all select '6. WhatsApp', 1, 'Modo do WhatsApp (simulado ou real)',
+         (select valor from config where chave = 'whatsapp_modo') is not null,
+         coalesce((select valor from config where chave = 'whatsapp_modo'), 'não cadastrado'), '14'
+  union all select '6. WhatsApp', 2, 'Número da Meta (phone_number_id)',
+         coalesce((select valor from config where chave = 'whatsapp_phone_number_id'), '') <> '',
+         coalesce(nullif((select valor from config where chave = 'whatsapp_phone_number_id'), ''), 'falta (passo 1)'),
+         'update configuracao set valor = ''ID'' where chave = ''whatsapp_phone_number_id'';'
+  union all select '6. WhatsApp', 3, 'Catálogo da Meta (opcional)',
+         coalesce((select valor from config where chave = 'whatsapp_catalogo_id'), '') <> '',
+         coalesce(nullif((select valor from config where chave = 'whatsapp_catalogo_id'), ''), 'sem catálogo: usa foto + botões'),
+         'update configuracao set valor = ''ID'' where chave = ''whatsapp_catalogo_id'';'
+  union all select '6. WhatsApp', 4, 'Flow de tamanho (opcional)',
+         coalesce((select valor from config where chave = 'whatsapp_flow_tamanho_id'), '') <> '',
+         coalesce(nullif((select valor from config where chave = 'whatsapp_flow_tamanho_id'), ''), 'sem Flow: pergunta as medidas por texto'),
+         'update configuracao set valor = ''ID'' where chave = ''whatsapp_flow_tamanho_id'';'
 )
 select grupo, case when ok then '✅' else '❌' end as status, item, detalhe,
        case when ok then '' else 'rode: ' || arquivo end as como_resolver

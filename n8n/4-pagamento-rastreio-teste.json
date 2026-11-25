@@ -247,9 +247,9 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+        "query": "insert into mensagens_saida (sessao, texto, blocos)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto', $1::jsonb->'blocos'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id, sessao",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output }) }}"
+          "queryReplacement": "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output, blocos: $json.blocos || null }) }}"
         }
       }
     },
@@ -322,14 +322,130 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
+        "query": "insert into mensagens_saida (sessao, texto, blocos)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto', $1::jsonb->'blocos'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id, sessao",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output }) }}"
+          "queryReplacement": "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output, blocos: $json.blocos || null }) }}"
         }
       }
     },
     {
       "id": "b2000000-0000-4000-8000-000000000317",
+      "name": "É do WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "É do WhatsApp?",
+              "leftValue": "={{ $json.sessao.startsWith('wa:') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000318",
+      "name": "Mandar no WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1980,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000319",
+      "name": "Aviso do WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        680
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Aviso do WhatsApp?",
+              "leftValue": "={{ $json.sessao.startsWith('wa:') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000320",
+      "name": "Mandar aviso no WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        680
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000321",
       "name": "Comparação",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -346,7 +462,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000318",
+      "id": "b2000000-0000-4000-8000-000000000322",
       "name": "Buscar comparação",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -363,7 +479,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000319",
+      "id": "b2000000-0000-4000-8000-000000000323",
       "name": "Montar comparação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -376,7 +492,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000320",
+      "id": "b2000000-0000-4000-8000-000000000324",
       "name": "Responder comparação",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -400,7 +516,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000321",
+      "id": "b2000000-0000-4000-8000-000000000325",
       "name": "Rastreio",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -417,7 +533,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000322",
+      "id": "b2000000-0000-4000-8000-000000000326",
       "name": "Buscar etapas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -435,7 +551,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000323",
+      "id": "b2000000-0000-4000-8000-000000000327",
       "name": "Montar rastreio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -448,7 +564,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000324",
+      "id": "b2000000-0000-4000-8000-000000000328",
       "name": "Responder rastreio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -583,6 +699,28 @@
         ]
       ]
     },
+    "Guardar mensagem para o cliente": {
+      "main": [
+        [
+          {
+            "node": "É do WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É do WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Mandar no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "A cada minuto": {
       "main": [
         [
@@ -610,6 +748,28 @@
         [
           {
             "node": "Guardar aviso para o cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar aviso para o cliente": {
+      "main": [
+        [
+          {
+            "node": "Aviso do WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aviso do WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Mandar aviso no WhatsApp",
             "type": "main",
             "index": 0
           }

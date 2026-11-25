@@ -63,7 +63,7 @@ Páginas públicas (n8n): pagamento de teste · confirmação · rastreio
 
 | Ferramenta | Uso | Observação |
 |---|---|---|
-| **n8n 2.47** (self-hosted) | Orquestra o agente, as páginas e as rotinas | 4 workflows |
+| **n8n 2.47** (self-hosted) | Orquestra o agente, as páginas e as rotinas | 5 workflows |
 | **Supabase** (Postgres, plano Free) | Dados, regras de negócio, memória, prompt e testes | Regras de preço e estoque ficam no banco, não na IA |
 | **OpenRouter** | Acesso aos modelos Claude | Haiku 5.5 para a Lia; Sonnet 5.5 para a IA avaliadora |
 | **Claude Haiku 5.5** | Cérebro da Lia | Não aceita mudança de temperatura; a precisão vem de esforço, prompt e testes |
@@ -75,11 +75,11 @@ Páginas públicas (n8n): pagamento de teste · confirmação · rastreio
 | `modelo` | `anthropic/claude-haiku-5.5` | Qual modelo responde |
 | `esforco` | `medium` | Quanto ele raciocina (`low`, `medium`, `high`) |
 | `janela` | 20 | Quantas interações anteriores a Lia lembra |
-| `sessao` | vem do canal | Identifica o cliente (`demo:`, `teste:` ou, no futuro, o telefone) |
+| `sessao` | vem do canal | Identifica o cliente (`demo:`, `teste:` ou `wa:` + telefone no WhatsApp) |
 
 ---
 
-## 5. Os 4 workflows do n8n
+## 5. Os 5 workflows do n8n
 
 | Workflow | Função | Nós principais |
 |---|---|---|
@@ -87,6 +87,7 @@ Páginas públicas (n8n): pagamento de teste · confirmação · rastreio
 | **2. Chat de demonstração** | Onde o cliente conversa | Página de chat própria (`/webhook/olden-chat`), que busca a cada 3 s as mensagens que a Lia manda sozinha; também o Open chat do n8n, para testes rápidos |
 | **3. Bateria de testes** | Mede a qualidade da Lia | Roda cenários em várias configurações, confere o banco, dá nota com IA avaliadora e salva o resultado |
 | **4. Pagamento e rastreio de teste** | Páginas públicas e rotinas | Página de pagamento fictício, confirmação, página de rastreio e uma verificação a cada minuto que dispara os avisos de entrega |
+| **5. WhatsApp** | A Lia na API oficial da Meta | Webhook `/webhook/olden-whatsapp`, conversão dos blocos em mensagens nativas, provador virtual, avisos da loja e feed do catálogo (`/webhook/olden-catalogo-meta`). Começa em modo simulado; veja [whatsapp.md](whatsapp.md) |
 
 **Ferramentas da Lia**
 
@@ -277,7 +278,10 @@ Para mudar o comportamento: rodar o `supabase/atualizar_prompt.sql` no Supabase,
 | `supabase/00_instalar_tudo.sql` | Instala todo o banco (01 a 09) |
 | `supabase/01` … `09_*.sql` | Etapas do banco, separadas |
 | `supabase/atualizar_prompt.sql` | Atualiza o comportamento da Lia |
-| `n8n/1-nucleo-agente.json` … `4-pagamento-rastreio-teste.json` | Os 4 workflows |
+| `n8n/1-nucleo-agente.json` … `5-whatsapp.json` | Os 5 workflows |
+| `n8n/whatsapp/flow-tamanho.json` | Flow "Descubra seu tamanho" para colar no WhatsApp Manager |
+| `supabase/14_whatsapp.sql` | Ponte com o WhatsApp (registro, configuração, feed do catálogo, provador) |
+| `docs/whatsapp.md` | Passo 1 (contas da Meta) e virada do teste para o WhatsApp |
 | `n8n/system-prompt.md` | Cópia de referência do prompt da Lia |
 | `n8n/build/` | Geradores dos workflows e dos SQL, e a página de chat |
 | `docs/ambiente-de-testes.md` | Guia operacional (instalação, testes, demonstração) |

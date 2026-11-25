@@ -26,8 +26,9 @@ const pg = (name, position, query, replacement, extra = {}) => ({
   parameters: { operation: 'executeQuery', query, options: replacement ? { queryReplacement: replacement } : {} },
   ...extra,
 });
-const code = (name, position, jsCode, extra = {}) => ({
-  id: id(), name, type: 'n8n-nodes-base.code', typeVersion: 2, position, parameters: { jsCode }, ...extra,
+const code = (name, position, jsCode, { mode, ...extra } = {}) => ({
+  id: id(), name, type: 'n8n-nodes-base.code', typeVersion: 2, position,
+  parameters: { ...(mode ? { mode } : {}), jsCode }, ...extra,
 });
 const openRouter = (name, position, modelExpr, effortExpr) => ({
   id: id(), name, type: '@n8n/n8n-nodes-langchain.lmChatOpenRouter', typeVersion: 1, position,
@@ -126,6 +127,9 @@ for (const b of lidos.blocos) {
     if ((b.skus || []).length !== 2) problemas.push('comparacao: precisa de exatamente 2 peças');
     if (s.length === 2) saida.push({ tipo, texto: String(b.texto || ''), skus: s, produtos: s.map((x) => prods[x]) });
     else if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
+  } else if (tipo === 'provador') {
+    const s = filtra([b.sku], tipo);
+    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
   } else if (tipo === 'catalogo') {
     saida.push({ tipo, corpo: String(b.corpo || 'Veja o catálogo completo') });
   } else if (tipo === 'pagamento') {
@@ -155,6 +159,7 @@ const partes = saida.map((b) => {
     case 'tamanho': return b.texto + '\\n[formulário de tamanho: altura, peso e caimento da ' + b.produto.nome + ']';
     case 'comparacao': return (b.texto ? b.texto + '\\n' : '') + '[comparação lado a lado]\\n' + b.produtos.map((p) => linha(p) + Object.values(p.atributos || {}).map((a) => '\\n   ' + a).join('')).join('\\n');
     case 'pagamento': return b.texto + '\\n' + b.url;
+    case 'provador': return (b.texto ? b.texto + '\\n' : '') + '[prévia do cliente vestindo ' + b.produto.nome + ']';
   }
   return '';
 });
@@ -679,6 +684,18 @@ const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><met
   + '</style></head><body><header>Olden Sports · Comparação</header>' + corpo + '</body></html>';
 return [{ json: { html } }];`;
 
+  const se4 = (name, position, cond) => ({
+    id: id(), name, type: 'n8n-nodes-base.if', typeVersion: 2.2, position,
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+        conditions: [{ id: name, leftValue: `={{ ${cond} }}`, rightValue: '', operator: { type: 'boolean', operation: 'true', singleValue: true } }],
+        combinator: 'and',
+      },
+      options: {},
+    },
+  });
+  const WHATSAPP = { __rl: true, mode: 'list', value: '' }; // workflow 5, escolhido no n8n depois de importar
   const webhook = (name, position, path, method, webhookId) => ({
     id: id(), name, type: 'n8n-nodes-base.webhook', typeVersion: 2, position, webhookId,
     parameters: { httpMethod: method, path, responseMode: 'responseNode', options: {} },
@@ -737,9 +754,8 @@ return [{ json: { html } }];`;
       parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
     },
     pg('Guardar mensagem para o cliente', [1540, 220],
-      "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
-      "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output }) }}"),
-    // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
+      "insert into mensagens_saida (sessao, texto, blocos)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto', $1::jsonb->'blocos'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id, sessao",
+      "={{ JSON.stringify({ sessao: $('Montar aviso').first().json.sessao, texto: $json.output, blocos: $json.blocos || null }) }}"),
 
     // A cada minuto: etapas novas do rastreio viram mensagens da Lia ao cliente
     {
@@ -753,9 +769,18 @@ return [{ json: { html } }];`;
       parameters: { source: 'database', workflowId: NUCLEO, mode: 'each', options: { waitForSubWorkflow: true } },
     },
     pg('Guardar aviso para o cliente', [660, 680],
-      "insert into mensagens_saida (sessao, texto)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id",
-      "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output }) }}"),
-    // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
+      "insert into mensagens_saida (sessao, texto, blocos)\nselect $1::jsonb->>'sessao', $1::jsonb->>'texto', $1::jsonb->'blocos'\nwhere coalesce($1::jsonb->>'texto', '') <> ''\nreturning id, sessao",
+      "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output, blocos: $json.blocos || null }) }}"),
+
+    // Conversas do WhatsApp: o workflow 5 manda o aviso pela Meta
+    se4('É do WhatsApp?', [1760, 220], "$json.sessao.startsWith('wa:')"),
+    { id: id(), name: 'Mandar no WhatsApp', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1980, 220],
+      onError: 'continueRegularOutput', executeOnce: true,
+      parameters: { source: 'database', workflowId: WHATSAPP, mode: 'once', options: { waitForSubWorkflow: false } } },
+    se4('Aviso do WhatsApp?', [880, 680], "$json.sessao.startsWith('wa:')"),
+    { id: id(), name: 'Mandar aviso no WhatsApp', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1100, 680],
+      onError: 'continueRegularOutput', executeOnce: true,
+      parameters: { source: 'database', workflowId: WHATSAPP, mode: 'once', options: { waitForSubWorkflow: false } } },
 
     webhook('Comparação', [0, 900], 'olden-comparacao', 'GET', 'a1b2c3d4-5e6f-4a7b-9c8d-e0f1a2b3c4d5'),
     pg('Buscar comparação', [220, 900], "select comparar_produtos($1::jsonb->>'a', $1::jsonb->>'b') as comparacao",
@@ -781,9 +806,13 @@ return [{ json: { html } }];`;
     'Tem aviso para a Lia?': main('Montar aviso'),
     'Montar aviso': main('Lia escreve ao cliente'),
     'Lia escreve ao cliente': main('Guardar mensagem para o cliente'),
+    'Guardar mensagem para o cliente': main('É do WhatsApp?'),
+    'É do WhatsApp?': main('Mandar no WhatsApp'),
     'A cada minuto': main('Etapas novas do rastreio'),
     'Etapas novas do rastreio': main('Lia avisa a etapa'),
     'Lia avisa a etapa': main('Guardar aviso para o cliente'),
+    'Guardar aviso para o cliente': main('Aviso do WhatsApp?'),
+    'Aviso do WhatsApp?': main('Mandar aviso no WhatsApp'),
     'Comparação': main('Buscar comparação'),
     'Buscar comparação': main('Montar comparação'),
     'Montar comparação': main('Responder comparação'),
@@ -794,5 +823,229 @@ return [{ json: { html } }];`;
   save('4-pagamento-rastreio-teste.json', {
     name: 'Olden | 4. Pagamento e rastreio de teste', nodes, connections, pinData: {},
     settings: { executionOrder: 'v1' },
+  });
+}
+
+// =====================================================================
+// 5. WhatsApp (API oficial da Meta). Em "simulado" não chama a Meta:
+//    só registra em whatsapp_mensagens o que enviaria.
+// =====================================================================
+{
+  seq = 400;
+  const js = (f) => fs.readFileSync(path.join(__dirname, 'whatsapp', f), 'utf8');
+  const CFG = "select jsonb_object_agg(chave, valor) as cfg from configuracao\nwhere chave like 'whatsapp%' or chave like 'provador%' or chave = 'url_base_n8n'";
+  const se = (name, position, cond) => ({
+    id: id(), name, type: 'n8n-nodes-base.if', typeVersion: 2.2, position,
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+        conditions: [{ id: name, leftValue: `={{ ${cond} }}`, rightValue: '', operator: { type: 'boolean', operation: 'true', singleValue: true } }],
+        combinator: 'and',
+      },
+      options: {},
+    },
+  });
+  const graph = "'https://graph.facebook.com/' + ($('Configuração do WhatsApp').first().json.cfg.whatsapp_graph_versao || 'v23.0') + '/'";
+  const phone = "$('Configuração do WhatsApp').first().json.cfg.whatsapp_phone_number_id";
+  // Token da Meta: credencial "Header Auth" no n8n (Authorization: Bearer TOKEN)
+  const meta = (name, position, method, url, extra = {}) => ({
+    id: id(), name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position, ...extra.node,
+    parameters: {
+      method, url, authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+      ...extra.params, options: { timeout: 30000, ...(extra.options || {}) },
+    },
+  });
+  const nodes = [
+    // --- Verificação do webhook (a Meta chama uma vez, ao configurar) ---
+    {
+      id: id(), name: 'Verificação da Meta', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, -300],
+      webhookId: '7c1e2a40-5b6d-4e8f-9a01-b2c3d4e5f601',
+      parameters: { httpMethod: 'GET', path: 'olden-whatsapp', responseMode: 'responseNode', options: {} },
+    },
+    pg('Token de verificação', [220, -300], "select valor as token from configuracao where chave = 'whatsapp_verify_token'", null),
+    {
+      id: id(), name: 'Responder verificação', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [440, -300],
+      parameters: {
+        respondWith: 'text',
+        responseBody: "={{ $('Verificação da Meta').first().json.query['hub.verify_token'] === $json.token ? $('Verificação da Meta').first().json.query['hub.challenge'] : 'token inválido' }}",
+        options: { responseCode: "={{ $('Verificação da Meta').first().json.query['hub.verify_token'] === $json.token ? 200 : 403 }}" },
+      },
+    },
+
+    // --- Mensagens do cliente ---
+    {
+      id: id(), name: 'Recebe do WhatsApp', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 0],
+      webhookId: '7c1e2a40-5b6d-4e8f-9a01-b2c3d4e5f602',
+      parameters: { httpMethod: 'POST', path: 'olden-whatsapp', responseMode: 'onReceived', options: {} },
+    },
+    pg('Configuração do WhatsApp', [200, 0], CFG, null),
+    code('Ler evento', [400, 0], js('ler-evento.js')),
+    se('É mensagem?', [600, 0], "$json.evento === 'mensagem'"),
+    pg('Atualizar status', [800, 200],
+      "update whatsapp_mensagens\n   set status = $1::jsonb->>'status', erro = coalesce(nullif($1::jsonb->>'erro', ''), erro)\n where wamid = $1::jsonb->>'wamid' and direcao = 'saida'\nreturning id",
+      '={{ JSON.stringify($json) }}'),
+    // Grava a mensagem; se a Meta reenviar a mesma (mesmo wamid), não devolve nada e o fluxo para
+    pg('Registrar entrada', [800, 0],
+      "insert into whatsapp_mensagens (wamid, sessao, direcao, tipo, payload, texto, status)\nselect j->>'wamid', j->>'sessao', 'entrada', j->>'tipo', j->'payload', j->>'texto', 'recebida'\nfrom (select $1::jsonb as j) p\non conflict (wamid) do nothing\nreturning id, wamid, sessao, texto",
+      '={{ JSON.stringify($json) }}'),
+    se('Modo real?', [1000, 0], "$('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
+    meta('Marcar como lida', [1200, -120], 'POST', `={{ ${graph} + ${phone} + '/messages' }}`, {
+      node: { onError: 'continueRegularOutput' },
+      params: { sendBody: true, specifyBody: 'json', jsonBody: "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: $json.wamid, typing_indicator: { type: 'text' } }) }}" },
+    }),
+    {
+      id: id(), name: 'Mensagem para a Lia', type: 'n8n-nodes-base.set', typeVersion: 3.4, position: [1400, 0],
+      parameters: {
+        mode: 'manual',
+        assignments: { assignments: [
+          { id: 'wa-0', name: 'sessao', type: 'string', value: "={{ $('Registrar entrada').item.json.sessao }}" },
+          { id: 'wa-1', name: 'mensagem', type: 'string', value: "={{ $('Registrar entrada').item.json.texto }}" },
+          { id: 'wa-2', name: 'wamid', type: 'string', value: "={{ $('Registrar entrada').item.json.wamid }}" },
+        ] },
+        options: {},
+      },
+    },
+    {
+      id: id(), name: 'Lia responde', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1600, 0],
+      onError: 'continueRegularOutput',
+      parameters: { source: 'database', workflowId: NUCLEO, mode: 'each', options: { waitForSubWorkflow: true } },
+    },
+    code('Juntar resposta', [1800, 0], `// Junta a resposta da Lia com a conversa de origem (mesma ordem das mensagens)
+const entradas = $('Mensagem para a Lia').all();
+const cfg = $('Configuração do WhatsApp').first().json.cfg;
+return $input.all().map((it, i) => ({ json: {
+  sessao: entradas[i].json.sessao, cfg,
+  blocos: (it.json.blocos || []).length ? it.json.blocos : [{ tipo: 'texto', texto: 'Desculpa, tive um probleminha aqui. Pode repetir?', botoes: [] }],
+} }));`),
+    se('Tem provador?', [2000, 0], "$json.cfg.provador_ativo === 'sim' && ($json.blocos || []).some((b) => b.tipo === 'provador')"),
+
+    // --- Provador virtual (experimental): selfie + foto da peça -> prévia gerada por IA ---
+    pg('Última selfie', [2200, -400], 'select * from ultima_foto_cliente($1)', '={{ $json.sessao }}', { alwaysOutputData: true, executeOnce: true }),
+    se('Tem selfie?', [2400, -400], '!!$json.media'),
+    code('Sem selfie', [2600, -200], "return [{ json: { ok: false, motivo: 'sem_foto' } }];"),
+    // Teste sem a Meta: a "selfie" é um link público e é baixada sem o token
+    se('Selfie de teste?', [2600, -400], "String($json.media).startsWith('https://')"),
+    {
+      id: id(), name: 'Baixar selfie de teste', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [2800, -500],
+      onError: 'continueRegularOutput',
+      parameters: { method: 'GET', url: '={{ $json.media }}', options: { timeout: 30000, response: { response: { responseFormat: 'file' } } } },
+    },
+    meta('Endereço da selfie', [2800, -320], 'GET', `={{ ${graph} + $json.media }}`, { node: { onError: 'continueRegularOutput' } }),
+    meta('Baixar selfie', [3000, -320], 'GET', '={{ $json.url }}', {
+      node: { onError: 'continueRegularOutput' }, options: { response: { response: { responseFormat: 'file' } } },
+    }),
+    code('Pedido ao provador', [3200, -400], js('pedido-provador.js')),
+    {
+      id: id(), name: 'Gerar prévia', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [3400, -400],
+      onError: 'continueRegularOutput',
+      parameters: {
+        method: 'POST', url: 'https://openrouter.ai/api/v1/chat/completions',
+        authentication: 'predefinedCredentialType', nodeCredentialType: 'openRouterApi',
+        sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.corpo) }}',
+        options: { timeout: 120000 },
+      },
+    },
+    code('Ler prévia', [3600, -400], js('ler-previa.js')),
+    pg('Apagar referência da selfie', [3800, -560], 'select apagar_foto_cliente($1::bigint)', "={{ $('Última selfie').first().json.registro_id || 0 }}", { executeOnce: true }),
+    se('Subir prévia?', [3800, -400], "$json.ok && $('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
+    meta('Subir prévia', [4000, -480], 'POST', `={{ ${graph} + ${phone} + '/media' }}`, {
+      node: { onError: 'continueRegularOutput' },
+      params: {
+        sendBody: true, contentType: 'multipart-form-data',
+        bodyParameters: { parameters: [
+          { parameterType: 'formData', name: 'messaging_product', value: 'whatsapp' },
+          { parameterType: 'formData', name: 'type', value: '={{ $json.mime }}' },
+          { parameterType: 'formBinaryData', name: 'file', inputDataFieldName: 'data' },
+        ] },
+      },
+    }),
+    code('Juntar prévia', [4200, -400], js('juntar-previa.js')),
+
+    // --- Envio: blocos da Lia -> mensagens do WhatsApp ---
+    code('Montar envios', [4400, 0], js('montar-envios.js')),
+    se('Enviar de verdade?', [4600, 0], '$json.real'),
+    meta('Enviar ao WhatsApp', [4800, -120], 'POST', '={{ $json.url }}', {
+      node: { onError: 'continueRegularOutput' },
+      params: { sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.payload) }}' },
+      // Uma mensagem por vez, na ordem, com um respiro entre elas
+      options: { batching: { batch: { batchSize: 1, batchInterval: 400 } }, response: { response: { fullResponse: true, neverError: true } } },
+    }),
+    code('Resultado do envio', [5000, -120], `// Junta a resposta da Meta com a mensagem enviada (uma por item)
+const env = $('Montar envios').item.json;
+const r = $json.body || {};
+const ok = $json.statusCode >= 200 && $json.statusCode < 300 && (r.messages || []).length > 0;
+const e = r.error || {};
+return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'enviada' : 'erro',
+  erro: ok ? null : (e.message || 'HTTP ' + $json.statusCode) + (e.error_data ? ' - ' + JSON.stringify(e.error_data) : '') } };`, { mode: 'runOnceForEachItem' }),
+    pg('Registrar saída', [5200, 0],
+      "insert into whatsapp_mensagens (wamid, sessao, direcao, tipo, payload, texto, status, erro)\nselect nullif(j->>'wamid', ''), j->>'sessao', 'saida', j->>'tipo', j->'payload', j->>'texto', j->>'status', nullif(j->>'erro', '')\nfrom (select $1::jsonb as j) p\non conflict (wamid) do nothing\nreturning id",
+      '={{ JSON.stringify($json) }}'),
+
+    // --- Avisos da loja (pagamento aprovado, etapas do rastreio): chamado pelo workflow 4 ---
+    {
+      id: id(), name: 'Avisos da loja', type: 'n8n-nodes-base.executeWorkflowTrigger', typeVersion: 1.1,
+      position: [3800, 300], parameters: { inputSource: 'passthrough' },
+    },
+    pg('Avisos pendentes', [4000, 300], `select a.*, (${CFG}) as cfg from avisos_whatsapp_pendentes() a`, null, { executeOnce: true }),
+    code('Preparar avisos', [4200, 300], `return $input.all().filter((i) => i.json.sessao).map((i) => ({ json: {
+  sessao: i.json.sessao, cfg: i.json.cfg,
+  blocos: (i.json.blocos || []).length ? i.json.blocos : [{ tipo: 'texto', texto: i.json.texto, botoes: [] }],
+} }));`),
+
+    // --- Catálogo para o Commerce Manager da Meta (feed CSV) ---
+    {
+      id: id(), name: 'Feed do catálogo', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 600],
+      webhookId: '7c1e2a40-5b6d-4e8f-9a01-b2c3d4e5f603',
+      parameters: { httpMethod: 'GET', path: 'olden-catalogo-meta', responseMode: 'responseNode', options: {} },
+    },
+    pg('Montar feed', [220, 600], 'select feed_catalogo_meta() as csv', null),
+    {
+      id: id(), name: 'Responder feed', type: 'n8n-nodes-base.respondToWebhook', typeVersion: 1.1, position: [440, 600],
+      parameters: {
+        respondWith: 'text', responseBody: '={{ $json.csv }}',
+        options: { responseHeaders: { entries: [{ name: 'Content-Type', value: 'text/csv; charset=utf-8' }, { name: 'Content-Disposition', value: 'inline; filename="olden-catalogo.csv"' }] } },
+      },
+    },
+  ];
+  const connections = {
+    'Verificação da Meta': main('Token de verificação'),
+    'Token de verificação': main('Responder verificação'),
+    'Recebe do WhatsApp': main('Configuração do WhatsApp'),
+    'Configuração do WhatsApp': main('Ler evento'),
+    'Ler evento': main('É mensagem?'),
+    'É mensagem?': main('Registrar entrada', 'Atualizar status'),
+    'Registrar entrada': main('Modo real?'),
+    'Modo real?': main('Marcar como lida', 'Mensagem para a Lia'),
+    'Marcar como lida': main('Mensagem para a Lia'),
+    'Mensagem para a Lia': main('Lia responde'),
+    'Lia responde': main('Juntar resposta'),
+    'Juntar resposta': main('Tem provador?'),
+    'Tem provador?': main('Última selfie', 'Montar envios'),
+    'Última selfie': main('Tem selfie?'),
+    'Tem selfie?': main('Selfie de teste?', 'Sem selfie'),
+    'Sem selfie': main('Juntar prévia'),
+    'Selfie de teste?': main('Baixar selfie de teste', 'Endereço da selfie'),
+    'Baixar selfie de teste': main('Pedido ao provador'),
+    'Endereço da selfie': main('Baixar selfie'),
+    'Baixar selfie': main('Pedido ao provador'),
+    'Pedido ao provador': main('Gerar prévia'),
+    'Gerar prévia': main('Ler prévia'),
+    'Ler prévia': { main: [[conn('Apagar referência da selfie'), conn('Subir prévia?')]] },
+    'Subir prévia?': main('Subir prévia', 'Juntar prévia'),
+    'Subir prévia': main('Juntar prévia'),
+    'Juntar prévia': main('Montar envios'),
+    'Montar envios': main('Enviar de verdade?'),
+    'Enviar de verdade?': main('Enviar ao WhatsApp', 'Registrar saída'),
+    'Enviar ao WhatsApp': main('Resultado do envio'),
+    'Resultado do envio': main('Registrar saída'),
+    'Avisos da loja': main('Avisos pendentes'),
+    'Avisos pendentes': main('Preparar avisos'),
+    'Preparar avisos': main('Montar envios'),
+    'Feed do catálogo': main('Montar feed'),
+    'Montar feed': main('Responder feed'),
+  };
+  save('5-whatsapp.json', {
+    name: 'Olden | 5. WhatsApp', nodes, connections, pinData: {},
+    settings: { executionOrder: 'v1', executionTimeout: 300 },
   });
 }

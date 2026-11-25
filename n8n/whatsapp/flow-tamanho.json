@@ -1,0 +1,60 @@
+{
+  "version": "7.1",
+  "screens": [
+    {
+      "id": "TAMANHO",
+      "title": "Descubra seu tamanho",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "sku": { "type": "string", "__example__": "OLD-P97" },
+        "nome": { "type": "string", "__example__": "Camisa Flamengo Shout - Masculino" },
+        "adulto": { "type": "boolean", "__example__": true },
+        "crianca": { "type": "boolean", "__example__": false }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "${data.nome}" },
+          { "type": "TextBody", "text": "Responda e a Lia te diz o tamanho que tem em estoque." },
+          {
+            "type": "TextInput", "name": "altura", "label": "Altura (cm)", "input-type": "number",
+            "helper-text": "Ex.: 172", "required": "${data.adulto}", "visible": "${data.adulto}"
+          },
+          {
+            "type": "TextInput", "name": "peso", "label": "Peso (kg)", "input-type": "number",
+            "helper-text": "Ex.: 70", "required": "${data.adulto}", "visible": "${data.adulto}"
+          },
+          {
+            "type": "RadioButtonsGroup", "name": "caimento", "label": "Como você gosta que fique?",
+            "data-source": [
+              { "id": "justa", "title": "Justa" },
+              { "id": "normal", "title": "Normal" },
+              { "id": "solta", "title": "Solta" }
+            ],
+            "required": "${data.adulto}", "visible": "${data.adulto}"
+          },
+          {
+            "type": "TextInput", "name": "idade", "label": "Idade da criança (anos)", "input-type": "number",
+            "helper-text": "Ex.: 6", "required": "${data.crianca}", "visible": "${data.crianca}"
+          },
+          {
+            "type": "Footer",
+            "label": "Ver meu tamanho",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "sku": "${data.sku}",
+                "nome": "${data.nome}",
+                "altura": "${form.altura}",
+                "peso": "${form.peso}",
+                "caimento": "${form.caimento}",
+                "idade": "${form.idade}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
