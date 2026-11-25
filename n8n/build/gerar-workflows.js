@@ -117,6 +117,15 @@ for (const b of lidos.blocos) {
       if (s.length) secoes.push({ titulo: corta(sec.titulo || 'Seção', 24), skus: s, produtos: s.map((x) => prods[x]) });
     }
     if (secoes.length) saida.push({ tipo, cabecalho: corta(b.cabecalho || 'Vitrine', 60), corpo: String(b.corpo || ''), secoes });
+  } else if (tipo === 'tamanho') {
+    const k = String(b.sku || '').trim().toUpperCase();
+    if (prods[k]) saida.push({ tipo, sku: k, texto: String(b.texto || 'Me conta suas medidas que eu te digo o tamanho'), produto: prods[k] });
+    else problemas.push('tamanho: código ' + b.sku + ' não existe');
+  } else if (tipo === 'comparacao') {
+    const s = filtra((b.skus || []).slice(0, 2), tipo);
+    if ((b.skus || []).length !== 2) problemas.push('comparacao: precisa de exatamente 2 peças');
+    if (s.length === 2) saida.push({ tipo, texto: String(b.texto || ''), skus: s, produtos: s.map((x) => prods[x]) });
+    else if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
   } else if (tipo === 'catalogo') {
     saida.push({ tipo, corpo: String(b.corpo || 'Veja o catálogo completo') });
   } else if (tipo === 'pagamento') {
@@ -143,6 +152,8 @@ const partes = saida.map((b) => {
     case 'carrossel_produtos': return (b.corpo ? b.corpo + '\\n' : '') + b.produtos.map(linha).join('\\n');
     case 'vitrine': return b.cabecalho + (b.corpo ? '\\n' + b.corpo : '') + '\\n' + b.secoes.map((s) => s.titulo + ':\\n' + s.produtos.map(linha).join('\\n')).join('\\n');
     case 'catalogo': return b.corpo + ' [Ver catálogo]';
+    case 'tamanho': return b.texto + '\\n[formulário de tamanho: altura, peso e caimento da ' + b.produto.nome + ']';
+    case 'comparacao': return (b.texto ? b.texto + '\\n' : '') + '[comparação lado a lado]\\n' + b.produtos.map((p) => linha(p) + Object.values(p.atributos || {}).map((a) => '\\n   ' + a).join('')).join('\\n');
     case 'pagamento': return b.texto + '\\n' + b.url;
   }
   return '';
@@ -236,6 +247,14 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
       'Mostra os produtos de uma vitrine montada pela loja (ex.: promocoes, destaques, palmeiras). Devolve o mesmo formato de buscar_produtos.',
       "select * from itens_vitrine($1::jsonb->>'nome', coalesce(($1::jsonb->>'limite')::int, 10))",
       `nome: $fromAI('nome', 'Nome da vitrine, ex.: promocoes', 'string'), limite: $fromAI('limite', 'Quantos produtos trazer, de 1 a 30', 'number')`),
+    tool('recomendar_tamanho', [1740, 260],
+      'Calcula o tamanho sugerido de uma peça a partir de altura, peso e caimento (adulto) ou da idade (infantil), usando as medidas da peça e o estoque. Devolve o tamanho sugerido, se tem em estoque, o código do tamanho e como foi calculado. É uma sugestão: apresente como tal.',
+      "select recomendar_tamanho($1::jsonb->>'sku', nullif(($1::jsonb->>'altura_cm')::numeric, 0), nullif(($1::jsonb->>'peso_kg')::numeric, 0),\n  coalesce(nullif($1::jsonb->>'caimento', ''), 'normal'), nullif(($1::jsonb->>'idade_anos')::numeric, 0)) as resultado",
+      `sku: $fromAI('sku', 'Código do modelo (OLD-P...) que veio da busca', 'string'), altura_cm: $fromAI('altura_cm', 'Altura em centímetros (ex.: 172). Use 0 se não souber', 'number'), peso_kg: $fromAI('peso_kg', 'Peso em quilos (ex.: 70). Use 0 se não souber', 'number'), caimento: $fromAI('caimento', 'justa, normal ou solta', 'string'), idade_anos: $fromAI('idade_anos', 'Idade da criança em anos, para peças infantis. Use 0 para adulto', 'number')`),
+    tool('detalhes_produto', [1900, 260],
+      'Traz todos os detalhes de uma peça: descrição completa, material, gola, medidas, tamanhos com disponibilidade e códigos, preço, Pix, fotos e vídeo. Use quando o cliente perguntar algo que o resumo da busca não responde.',
+      "select detalhes_produto($1::jsonb->>'sku') as detalhes",
+      `sku: $fromAI('sku', 'Código do modelo (OLD-P...) ou do tamanho que veio da busca', 'string')`),
     code('Ler blocos', [960, 0], LER_BLOCOS),
     pg('Conferir produtos', [1180, 0], 'select produtos_para_blocos($1::jsonb) as produtos', '={{ JSON.stringify($json.skus) }}'),
     code('Validar blocos', [1400, 0], VALIDAR_BLOCOS),
@@ -254,6 +273,8 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
     gerar_link_pagamento: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     buscar_produtos: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     ver_vitrine: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    recomendar_tamanho: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    detalhes_produto: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     'Agente Olden': main('Ler blocos'),
     'Ler blocos': main('Conferir produtos'),
     'Conferir produtos': main('Validar blocos'),
@@ -641,6 +662,23 @@ else corpo = '<div class="card"><p>Código de rastreio</p><p class="codigo">' + 
   + '</div><div class="card"><p class="quando">Simulação acelerada: a entrega fictícia completa leva cerca de 15 minutos depois do pagamento.</p></div>';
 return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
 
+  const HTML_COMPARACAO = `const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const brl = (v) => (v == null ? '—' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));
+const ps = (($json.comparacao || {}).produtos) || [];
+const rot = { material: 'Material', gola: 'Gola', escudo: 'Escudo', manga: 'Manga' };
+const col = (p) => '<div class="col"><img src="' + esc(p.imagem) + '"><h2>' + esc(p.nome) + '</h2>'
+  + '<div class="lin"><b>Preço</b>' + brl(p.preco) + (p.preco_pix ? ' · Pix ' + brl(p.preco_pix) : '') + '</div>'
+  + '<div class="lin"><b>Tamanhos</b>' + esc((p.tamanhos || []).join(', ') || 'esgotado') + '</div>'
+  + Object.keys(rot).filter((k) => (p.atributos || {})[k]).map((k) => '<div class="lin"><b>' + rot[k] + '</b>' + esc(String(p.atributos[k]).replace(/^[^:]{0,20}:\\s*/, '')) + '</div>').join('') + '</div>';
+const corpo = ps.length === 2 ? '<div class="cols">' + ps.map(col).join('') + '</div>' : '<p>Produtos não encontrados.</p>';
+const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=1080"><meta name="robots" content="noindex"><title>Comparação</title><style>'
+  + '*{box-sizing:border-box}body{margin:0;width:1080px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#14231b}'
+  + 'header{background:#0b6b3a;color:#fff;padding:28px 40px;font-size:34px;font-weight:700}.cols{display:grid;grid-template-columns:1fr 1fr}'
+  + '.col{padding:32px 40px;border-right:2px solid #eef1ef}.col:last-child{border-right:0}.col img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:16px;background:#f3f5f4}'
+  + 'h2{font-size:30px;margin:20px 0 10px;line-height:1.2}.lin{font-size:24px;border-top:2px solid #f0f3f1;padding:12px 0}.lin b{display:block;font-size:18px;color:#5b6b62;text-transform:uppercase}'
+  + '</style></head><body><header>Olden Sports · Comparação</header>' + corpo + '</body></html>';
+return [{ json: { html } }];`;
+
   const webhook = (name, position, path, method, webhookId) => ({
     id: id(), name, type: 'n8n-nodes-base.webhook', typeVersion: 2, position, webhookId,
     parameters: { httpMethod: method, path, responseMode: 'responseNode', options: {} },
@@ -719,6 +757,12 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
       "={{ JSON.stringify({ sessao: $('Etapas novas do rastreio').item.json.sessao, texto: $json.output }) }}"),
     // No WhatsApp: depois deste nó, um HTTP Request envia o texto pelo provedor.
 
+    webhook('Comparação', [0, 900], 'olden-comparacao', 'GET', 'a1b2c3d4-5e6f-4a7b-9c8d-e0f1a2b3c4d5'),
+    pg('Buscar comparação', [220, 900], "select comparar_produtos($1::jsonb->>'a', $1::jsonb->>'b') as comparacao",
+      "={{ JSON.stringify({ a: $json.query.a || '', b: $json.query.b || '' }) }}"),
+    code('Montar comparação', [440, 900], HTML_COMPARACAO),
+    responder('Responder comparação', [660, 900]),
+
     webhook('Rastreio', [0, 440], 'olden-rastreio', 'GET', 'f6a7b8c9-3d4e-4f5a-8b12-c3d4e5f6a7b8'),
     pg('Buscar etapas', [220, 440],
       "select etapa, to_char(quando at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI') as quando, concluida\nfrom eventos_rastreio($1)",
@@ -740,6 +784,9 @@ return [{ json: { html: pagina('Rastreio do pedido', corpo) } }];`;
     'A cada minuto': main('Etapas novas do rastreio'),
     'Etapas novas do rastreio': main('Lia avisa a etapa'),
     'Lia avisa a etapa': main('Guardar aviso para o cliente'),
+    'Comparação': main('Buscar comparação'),
+    'Buscar comparação': main('Montar comparação'),
+    'Montar comparação': main('Responder comparação'),
     Rastreio: main('Buscar etapas'),
     'Buscar etapas': main('Montar rastreio'),
     'Montar rastreio': main('Responder rastreio'),

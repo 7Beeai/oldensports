@@ -330,6 +330,77 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000317",
+      "name": "Comparação",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        900
+      ],
+      "webhookId": "a1b2c3d4-5e6f-4a7b-9c8d-e0f1a2b3c4d5",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "olden-comparacao",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000318",
+      "name": "Buscar comparação",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        900
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select comparar_produtos($1::jsonb->>'a', $1::jsonb->>'b') as comparacao",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ a: $json.query.a || '', b: $json.query.b || '' }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000319",
+      "name": "Montar comparação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        900
+      ],
+      "parameters": {
+        "jsCode": "const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst brl = (v) => (v == null ? '—' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));\nconst ps = (($json.comparacao || {}).produtos) || [];\nconst rot = { material: 'Material', gola: 'Gola', escudo: 'Escudo', manga: 'Manga' };\nconst col = (p) => '<div class=\"col\"><img src=\"' + esc(p.imagem) + '\"><h2>' + esc(p.nome) + '</h2>'\n  + '<div class=\"lin\"><b>Preço</b>' + brl(p.preco) + (p.preco_pix ? ' · Pix ' + brl(p.preco_pix) : '') + '</div>'\n  + '<div class=\"lin\"><b>Tamanhos</b>' + esc((p.tamanhos || []).join(', ') || 'esgotado') + '</div>'\n  + Object.keys(rot).filter((k) => (p.atributos || {})[k]).map((k) => '<div class=\"lin\"><b>' + rot[k] + '</b>' + esc(String(p.atributos[k]).replace(/^[^:]{0,20}:\\s*/, '')) + '</div>').join('') + '</div>';\nconst corpo = ps.length === 2 ? '<div class=\"cols\">' + ps.map(col).join('') + '</div>' : '<p>Produtos não encontrados.</p>';\nconst html = '<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=1080\"><meta name=\"robots\" content=\"noindex\"><title>Comparação</title><style>'\n  + '*{box-sizing:border-box}body{margin:0;width:1080px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#14231b}'\n  + 'header{background:#0b6b3a;color:#fff;padding:28px 40px;font-size:34px;font-weight:700}.cols{display:grid;grid-template-columns:1fr 1fr}'\n  + '.col{padding:32px 40px;border-right:2px solid #eef1ef}.col:last-child{border-right:0}.col img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:16px;background:#f3f5f4}'\n  + 'h2{font-size:30px;margin:20px 0 10px;line-height:1.2}.lin{font-size:24px;border-top:2px solid #f0f3f1;padding:12px 0}.lin b{display:block;font-size:18px;color:#5b6b62;text-transform:uppercase}'\n  + '</style></head><body><header>Olden Sports · Comparação</header>' + corpo + '</body></html>';\nreturn [{ json: { html } }];"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000320",
+      "name": "Responder comparação",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        900
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000321",
       "name": "Rastreio",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -346,7 +417,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000318",
+      "id": "b2000000-0000-4000-8000-000000000322",
       "name": "Buscar etapas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -364,7 +435,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000319",
+      "id": "b2000000-0000-4000-8000-000000000323",
       "name": "Montar rastreio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -377,7 +448,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000320",
+      "id": "b2000000-0000-4000-8000-000000000324",
       "name": "Responder rastreio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -539,6 +610,39 @@
         [
           {
             "node": "Guardar aviso para o cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparação": {
+      "main": [
+        [
+          {
+            "node": "Buscar comparação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar comparação": {
+      "main": [
+        [
+          {
+            "node": "Montar comparação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar comparação": {
+      "main": [
+        [
+          {
+            "node": "Responder comparação",
             "type": "main",
             "index": 0
           }

@@ -424,6 +424,36 @@ A Lia passa a vender os 961 modelos do catálogo completo e a responder em **blo
 - **Página de chat:** em `/webhook/olden-chat`, teste "queria ver umas coisas", "quero a camisa do Flamengo" e "quero ver tudo de feminino".
 - **Bateria:** rode os cenários novos C26, C27, C28, C30, C34 e C36, além dos antigos, que agora usam os produtos reais. As checagens novas são: formato dos blocos, produtos que existem e têm estoque, no máximo 5 peças por vez e blocos esperados para cada cenário.
 
+## 14. Ajuda com o tamanho e comparação (passo 5 do guia)
+
+![Comparação, formulário de tamanho e recomendação](img/chat-tamanho-comparacao.png)
+
+*Teste local: produtos, medidas e atributos reais do catálogo; textos de um modelo simulado.*
+
+**Ajuda com o tamanho**
+- **Formulário:** a Lia manda o bloco `tamanho`. No chat de demonstração ele é um formulário com altura, peso e caimento (justa, normal ou solta); para peças infantis, pede a idade. No WhatsApp ele será o Flow nativo, com a mesma lógica (versão A do guia).
+- **Cálculo:** a resposta chega como "Minhas medidas para a ...", e a Lia chama `recomendar_tamanho`.
+  - **Adulto:** o banco estima o tórax pela altura e pelo peso. Depois escolhe o menor tamanho cuja largura da peça (×2) cobre o tórax mais a folga do caimento. Se a peça não tem medidas, usa uma tabela geral por peso. Se nenhum tamanho cobre, sugere o maior e avisa que pode ficar justo.
+  - **Infantil:** pela idade (ex.: 6 anos → faixa "4-8").
+- **Tabela de medidas:** a `tabela_medidas` é montada a partir das medidas das descrições. Hoje, 505 produtos têm medidas que casam com os tamanhos à venda. Depois de recarregar o catálogo, rode `select atualizar_tabela_medidas();`.
+- **É uma sugestão:** a Lia apresenta assim ("eu iria no M, e tem em estoque") e oferece ver as medidas.
+
+**Comparação entre duas peças**
+- **No chat:** o bloco `comparacao` mostra as duas peças lado a lado, com foto, preço, Pix, tamanhos, material, gola e escudo, e botões para escolher. Os atributos saem da descrição de cada produto.
+- **Página pública:** `/webhook/olden-comparacao?a=OLD-P...&b=OLD-P...` (workflow 4) mostra a mesma comparação em 1080 px. No canal WhatsApp, um conversor de HTML para imagem (Gotenberg, Puppeteer etc.) transforma essa página na imagem enviada ao cliente.
+
+![Página de comparação, 1080 px](img/comparacao-1080.png)
+
+**Nova ferramenta `detalhes_produto`:** traz a descrição completa, as medidas e os tamanhos de uma peça, para perguntas que o resumo da busca não responde.
+
+**Instalar**
+1. **Supabase:** rode `supabase/13_tamanho_comparacao.sql` (depois do 12) e o `supabase/atualizar_prompt.sql` (versão 4 do prompt).
+2. **n8n:** reimporte os workflows 1, 2, 3 e 4, religue o Núcleo nos nós que o chamam e clique em **Publish** no 1, no 2 e no 4.
+
+**Testar**
+- **Página de chat:** "tô em dúvida entre a Palestra Celebration e a polo verde" e "não sei meu tamanho" (preencha o formulário).
+- **Bateria:** cenários C29 (comparação), C30 (formulário) e C31 (resposta do formulário).
+
 ## 11. Mudar o comportamento da Lia sem mexer no n8n
 
 O prompt da Lia fica no Supabase, na tabela `prompt_agente`, com histórico de versões. O Núcleo busca a versão ativa a cada mensagem e preenche os dados da conversa nos marcadores `{{agora}}`, `{{cliente_nome}}`, `{{situacao_pedido}}`, `{{status}}` e `{{catalogo}}`. Mudou no banco, vale na próxima mensagem, sem Publish no n8n.

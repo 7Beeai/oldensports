@@ -43,6 +43,7 @@ O próximo passo em discussão é **oferecer a solução à loja oficial da Olde
 | Pagamento e rastreio reais | Não conectados (fictícios no teste) |
 | Catálogo completo da loja oficial | 961 modelos e 3.623 tamanhos coletados do site (Tray), com a busca `buscar_produtos` |
 | Lia com catálogo completo e respostas em blocos (passo 3 do guia) | Implementado e testado localmente com modelo simulado; a validar com o Claude real |
+| Ajuda com tamanho e comparação (passo 5 do guia) | Implementado no chat de demonstração e testado localmente; o Flow e a imagem do WhatsApp entram com o canal |
 
 ---
 
