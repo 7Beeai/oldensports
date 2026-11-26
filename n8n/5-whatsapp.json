@@ -245,7 +245,7 @@
         "method": "POST",
         "url": "={{ 'https://graph.facebook.com/' + ($('Configuração do WhatsApp').first().json.cfg.whatsapp_graph_versao || 'v23.0') + '/' + $('Configuração do WhatsApp').first().json.cfg.whatsapp_phone_number_id + '/messages' }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: $json.wamid, typing_indicator: { type: 'text' } }) }}",
@@ -497,7 +497,7 @@
         "method": "GET",
         "url": "={{ 'https://graph.facebook.com/' + ($('Configuração do WhatsApp').first().json.cfg.whatsapp_graph_versao || 'v23.0') + '/' + $json.media }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBearerAuth",
         "options": {
           "timeout": 30000
         }
@@ -517,7 +517,7 @@
         "method": "GET",
         "url": "={{ $json.url }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBearerAuth",
         "options": {
           "timeout": 30000,
           "response": {
@@ -643,7 +643,7 @@
         "method": "POST",
         "url": "={{ 'https://graph.facebook.com/' + ($('Configuração do WhatsApp').first().json.cfg.whatsapp_graph_versao || 'v23.0') + '/' + $('Configuração do WhatsApp').first().json.cfg.whatsapp_phone_number_id + '/media' }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -744,7 +744,7 @@
         "method": "POST",
         "url": "={{ $json.url }}",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json.payload) }}",

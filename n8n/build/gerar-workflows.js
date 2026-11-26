@@ -847,11 +847,11 @@ return [{ json: { html } }];`;
   });
   const graph = "'https://graph.facebook.com/' + ($('Configuração do WhatsApp').first().json.cfg.whatsapp_graph_versao || 'v23.0') + '/'";
   const phone = "$('Configuração do WhatsApp').first().json.cfg.whatsapp_phone_number_id";
-  // Token da Meta: credencial "Header Auth" no n8n (Authorization: Bearer TOKEN)
+  // Token da Meta: credencial "Bearer Auth" no n8n (só o token; o n8n põe o "Bearer ")
   const meta = (name, position, method, url, extra = {}) => ({
     id: id(), name, type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position, ...extra.node,
     parameters: {
-      method, url, authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth',
+      method, url, authentication: 'genericCredentialType', genericAuthType: 'httpBearerAuth',
       ...extra.params, options: { timeout: 30000, ...(extra.options || {}) },
     },
   });

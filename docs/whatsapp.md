@@ -12,7 +12,7 @@ Tudo do lado do n8n e do Supabase já está pronto e testado em **modo simulado*
 | Endereço do webhook | `https://n8n.treino.7bee.ai/webhook/olden-whatsapp` | Onde a Meta entrega as mensagens dos clientes |
 | Feed do catálogo | `https://n8n.treino.7bee.ai/webhook/olden-catalogo-meta` | CSV com os 3.623 tamanhos, no formato do Commerce Manager |
 | Flow "Descubra seu tamanho" | `n8n/whatsapp/flow-tamanho.json` | Tela nativa de altura, peso e caimento (ou idade, para infantil) |
-| Credencial **WhatsApp Olden (token da Meta)** | n8n > Credentials | Onde você cola o token. Hoje tem um valor provisório |
+| Credencial **WhatsApp Olden - token da Meta (só o token)** | n8n > Credentials | Tipo *Bearer Auth*: cole só o token (`EAA…`); o n8n põe o `Bearer ` |
 | Tabela `whatsapp_mensagens` | Supabase | Tudo que entrou e saiu, com status de entrega e erros da Meta |
 | `supabase/14_whatsapp.sql` | Supabase | Já aplicado. Configuração `whatsapp_*` e `provador_*` |
 
@@ -56,7 +56,7 @@ update configuracao set valor = 'não' where chave = 'provador_ativo';
    - Escolha o app.
    - Em **Expiração**, escolha **Nunca**.
    - Marque as permissões `whatsapp_business_messaging`, `whatsapp_business_management` e `catalog_management`.
-4. **Não mande esse token no chat.** No n8n, abra **Credentials > WhatsApp Olden (token da Meta)** e, em **Value**, troque `COLE-AQUI-O-TOKEN-DA-META` pelo token. Mantenha o `Bearer ` na frente. Salve.
+4. **Não mande esse token no chat.** No n8n, abra **Credentials > WhatsApp Olden - token da Meta (só o token)**. Clique no campo **Token**, selecione tudo, apague e cole só o token (`EAA…`), sem `Bearer`. Salve e não edite o campo depois de colar: o n8n mostra um texto de máscara no lugar do token salvo, e editar dentro dele grava a máscara.
 
 ### 1.4 Webhook (a Meta avisa o n8n quando chega mensagem)
 1. Descubra o token de verificação com esta consulta no SQL Editor do Supabase:
