@@ -39,6 +39,7 @@ insert into configuracao (chave, valor) values
   ('whatsapp_flow_tamanho_id', ''),         -- id do Flow "Descubra seu tamanho"
   ('whatsapp_flow_modo', 'draft'),          -- draft enquanto o Flow não for publicado | published
   ('whatsapp_verify_token', substr(md5(random()::text || clock_timestamp()::text), 1, 24)),
+  ('whatsapp_numeros_teste', ''),          -- só estes números falam com a Lia (vírgula); vazio = todos
   ('provador_ativo', 'sim'),
   ('provador_modelo', 'google/gemini-3.1-flash-image')
 on conflict (chave) do nothing;

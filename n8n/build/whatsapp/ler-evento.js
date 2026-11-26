@@ -53,6 +53,14 @@ const traduzir = (m) => {
   }
 };
 
+// Números liberados (configuracao.whatsapp_numeros_teste, separados por vírgula). Vazio = todos.
+// Mensagens de quem não está na lista são ignoradas: a Lia não responde, não marca como lida e nada é gravado.
+const cfg = $json.cfg || {};
+const digitos = (n) => String(n || '').replace(/\D/g, '');
+const sem9 = (n) => n.replace(/^55(\d{2})9(\d{8})$/, '55$1$2'); // compara com e sem o 9 do celular
+const liberados = String(cfg.whatsapp_numeros_teste || '').split(',').map(digitos).filter(Boolean).map(sem9);
+const permitido = (n) => !liberados.length || liberados.includes(sem9(digitos(n)));
+
 const saida = [];
 for (const entry of corpo.entry || []) {
   for (const ch of entry.changes || []) {
@@ -60,6 +68,7 @@ for (const entry of corpo.entry || []) {
     const nomes = {};
     for (const c of v.contacts || []) nomes[c.wa_id] = (c.profile || {}).name || '';
     for (const m of v.messages || []) {
+      if (!permitido(m.from)) continue;
       const texto = traduzir(m);
       if (texto === null || texto === '') continue;
       saida.push({ json: {
