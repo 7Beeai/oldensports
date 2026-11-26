@@ -21,7 +21,9 @@ const rotulos = { material: 'Material', gola: 'Gola', escudo: 'Escudo', manga: '
 const saida = [];
 for (const item of $input.all()) {
   const { sessao, blocos = [], cfg = {} } = item.json;
-  const to = String(sessao || '').replace(/^wa:/, '');
+  // Celular brasileiro pode chegar sem o 9 (ex.: 553199991234). Para enviar, a Meta casa com o número
+  // cadastrado, que tem o 9 (5531999991234): então o 9 é recolocado depois do DDD.
+  const to = String(sessao || '').replace(/^wa:/, '').replace(/^55(\d{2})([6-9]\d{7})$/, (m, ddd, num) => '55' + ddd + '9' + num);
   const real = cfg.whatsapp_modo === 'real';
   const url = 'https://graph.facebook.com/' + (cfg.whatsapp_graph_versao || 'v23.0') + '/' + (cfg.whatsapp_phone_number_id || 'SEM-PHONE-NUMBER-ID') + '/messages';
   const cat = String(cfg.whatsapp_catalogo_id || '').trim();
