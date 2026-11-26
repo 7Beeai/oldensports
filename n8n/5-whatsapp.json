@@ -165,6 +165,40 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000410",
+      "name": "Mensagem nova?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Mensagem nova?",
+              "leftValue": "={{ !!$json.id && !!$json.sessao }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000411",
       "name": "Modo real?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -198,7 +232,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000411",
+      "id": "b2000000-0000-4000-8000-000000000412",
       "name": "Marcar como lida",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -221,7 +255,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000412",
+      "id": "b2000000-0000-4000-8000-000000000413",
       "name": "Mensagem para a Lia",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -257,7 +291,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000413",
+      "id": "b2000000-0000-4000-8000-000000000414",
       "name": "Lia responde",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
@@ -280,7 +314,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000414",
+      "id": "b2000000-0000-4000-8000-000000000415",
       "name": "Juntar resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -293,7 +327,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000415",
+      "id": "b2000000-0000-4000-8000-000000000416",
       "name": "Tem provador?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -327,7 +361,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000416",
+      "id": "b2000000-0000-4000-8000-000000000417",
       "name": "Última selfie",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -346,7 +380,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000417",
+      "id": "b2000000-0000-4000-8000-000000000418",
       "name": "Tem selfie?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -380,7 +414,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000418",
+      "id": "b2000000-0000-4000-8000-000000000419",
       "name": "Sem selfie",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -393,7 +427,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000419",
+      "id": "b2000000-0000-4000-8000-000000000420",
       "name": "Selfie de teste?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -427,7 +461,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000420",
+      "id": "b2000000-0000-4000-8000-000000000421",
       "name": "Baixar selfie de teste",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -450,7 +484,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000421",
+      "id": "b2000000-0000-4000-8000-000000000422",
       "name": "Endereço da selfie",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -470,7 +504,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000422",
+      "id": "b2000000-0000-4000-8000-000000000423",
       "name": "Baixar selfie",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -495,7 +529,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000423",
+      "id": "b2000000-0000-4000-8000-000000000424",
       "name": "Pedido ao provador",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -508,7 +542,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000424",
+      "id": "b2000000-0000-4000-8000-000000000425",
       "name": "Gerar prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -531,7 +565,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000425",
+      "id": "b2000000-0000-4000-8000-000000000426",
       "name": "Ler prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -544,7 +578,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000426",
+      "id": "b2000000-0000-4000-8000-000000000427",
       "name": "Apagar referência da selfie",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -562,7 +596,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000427",
+      "id": "b2000000-0000-4000-8000-000000000428",
       "name": "Subir prévia?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -596,7 +630,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000428",
+      "id": "b2000000-0000-4000-8000-000000000429",
       "name": "Subir prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -637,7 +671,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000429",
+      "id": "b2000000-0000-4000-8000-000000000430",
       "name": "Juntar prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -650,7 +684,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000430",
+      "id": "b2000000-0000-4000-8000-000000000431",
       "name": "Montar envios",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -663,7 +697,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000431",
+      "id": "b2000000-0000-4000-8000-000000000432",
       "name": "Enviar de verdade?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -697,7 +731,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000432",
+      "id": "b2000000-0000-4000-8000-000000000433",
       "name": "Enviar ao WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -732,7 +766,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000433",
+      "id": "b2000000-0000-4000-8000-000000000434",
       "name": "Resultado do envio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -746,7 +780,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000434",
+      "id": "b2000000-0000-4000-8000-000000000435",
       "name": "Registrar saída",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -763,7 +797,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000435",
+      "id": "b2000000-0000-4000-8000-000000000436",
       "name": "Avisos da loja",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -776,7 +810,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000436",
+      "id": "b2000000-0000-4000-8000-000000000437",
       "name": "Avisos pendentes",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -792,7 +826,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000437",
+      "id": "b2000000-0000-4000-8000-000000000438",
       "name": "Preparar avisos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -805,7 +839,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000438",
+      "id": "b2000000-0000-4000-8000-000000000439",
       "name": "Feed do catálogo",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -822,7 +856,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000439",
+      "id": "b2000000-0000-4000-8000-000000000440",
       "name": "Montar feed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -837,7 +871,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000440",
+      "id": "b2000000-0000-4000-8000-000000000441",
       "name": "Responder feed",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -940,6 +974,17 @@
       ]
     },
     "Registrar entrada": {
+      "main": [
+        [
+          {
+            "node": "Mensagem nova?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem nova?": {
       "main": [
         [
           {

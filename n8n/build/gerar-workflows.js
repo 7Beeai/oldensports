@@ -888,6 +888,8 @@ return [{ json: { html } }];`;
     pg('Registrar entrada', [800, 0],
       "insert into whatsapp_mensagens (wamid, sessao, direcao, tipo, payload, texto, status)\nselect j->>'wamid', j->>'sessao', 'entrada', j->>'tipo', j->'payload', j->>'texto', 'recebida'\nfrom (select $1::jsonb as j) p\non conflict (wamid) do nothing\nreturning id, wamid, sessao, texto",
       '={{ JSON.stringify($json) }}'),
+    // Mensagem repetida (mesmo wamid): o insert não devolve nada e o fluxo para aqui
+    se('Mensagem nova?', [900, 0], '!!$json.id && !!$json.sessao'),
     se('Modo real?', [1000, 0], "$('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
     meta('Marcar como lida', [1200, -120], 'POST', `={{ ${graph} + ${phone} + '/messages' }}`, {
       node: { onError: 'continueRegularOutput' },
@@ -1014,7 +1016,8 @@ return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'envi
     'Configuração do WhatsApp': main('Ler evento'),
     'Ler evento': main('É mensagem?'),
     'É mensagem?': main('Registrar entrada', 'Atualizar status'),
-    'Registrar entrada': main('Modo real?'),
+    'Registrar entrada': main('Mensagem nova?'),
+    'Mensagem nova?': main('Modo real?'),
     'Modo real?': main('Marcar como lida', 'Mensagem para a Lia'),
     'Marcar como lida': main('Mensagem para a Lia'),
     'Mensagem para a Lia': main('Lia responde'),
