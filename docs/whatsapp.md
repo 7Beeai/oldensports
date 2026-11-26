@@ -166,3 +166,9 @@ from whatsapp_mensagens order by id desc limit 30;
 - **Segurança do webhook:** hoje o n8n aceita qualquer POST no endereço do webhook. Antes de abrir para clientes reais, vale conferir a assinatura `X-Hub-Signature-256` com o *app secret*. O n8n precisa permitir o módulo `crypto` no nó Code.
 - **Avisos depois de 24 horas:** o pagamento e o rastreio de teste acontecem em minutos, dentro da janela. Na operação real, um aviso de entrega dias depois precisa de **modelo de utilidade** aprovado pela Meta (momento 8 da jornada).
 - **Origem #GEMEAS e carrossel de mídia** (momento 1) e **carrinho nativo** (momento 7) dependem do catálogo e de modelos aprovados. A mensagem de carrinho (`order`) já chega para a Lia, como texto.
+
+## Pendências combinadas (lembrar o Victor)
+
+- **App "Olden teste" ligado à conta da 7Bee** (`297113960145419`, número +55 31 8041-0207): recebe uma cópia das mensagens desse número junto com "CDT - Disparos" e "7Bee API Oficial". A Lia só responde aos números de `whatsapp_numeros_teste`. Desligar quando a Olden tiver número próprio.
+- **Workflow "Olden | Diagnóstico Meta (temporário)"** no n8n: confere o token e as assinaturas sem mostrar o token. Apagar quando não for mais útil.
+- **Ideia em aberto:** juntar mensagens enviadas em sequência (ex.: "Camisas" e "Guilherme" em 6 segundos) numa resposta só.
