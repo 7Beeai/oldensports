@@ -103,12 +103,12 @@ for (const b of lidos.blocos) {
     if (opcoes.length) saida.push({ tipo, corpo: String(b.corpo || 'Escolha uma opção'), botao: corta(b.botao || 'Ver opções', 20), opcoes });
   } else if (tipo === 'produto' || tipo === 'midias') {
     const s = filtra([b.sku], tipo);
-    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
+    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]], ...(tipo === 'produto' ? { mostrar_preco: b.preco === true } : {}) });
   } else if (tipo === 'carrossel_produtos') {
     let s = filtra(b.skus, tipo);
     if (s.length > 10) { problemas.push('carrossel: mais de 10 peças'); s = s.slice(0, 10); }
-    if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.corpo || ''), produto: prods[s[0]] });
-    else if (s.length >= 2) saida.push({ tipo, corpo: String(b.corpo || ''), skus: s, produtos: s.map((x) => prods[x]) });
+    if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.corpo || ''), produto: prods[s[0]], mostrar_preco: b.preco === true });
+    else if (s.length >= 2) saida.push({ tipo, corpo: String(b.corpo || ''), skus: s, produtos: s.map((x) => prods[x]), mostrar_preco: b.preco === true });
   } else if (tipo === 'vitrine') {
     let total = 0; const secoes = [];
     if ((b.secoes || []).length > 10) problemas.push('vitrine: mais de 10 seções');
@@ -117,7 +117,7 @@ for (const b of lidos.blocos) {
       total += s.length;
       if (s.length) secoes.push({ titulo: corta(sec.titulo || 'Seção', 24), skus: s, produtos: s.map((x) => prods[x]) });
     }
-    if (secoes.length) saida.push({ tipo, cabecalho: corta(b.cabecalho || 'Vitrine', 60), corpo: String(b.corpo || ''), secoes });
+    if (secoes.length) saida.push({ tipo, cabecalho: corta(b.cabecalho || 'Vitrine', 60), corpo: String(b.corpo || ''), secoes, mostrar_preco: b.preco === true });
   } else if (tipo === 'tamanho') {
     const k = String(b.sku || '').trim().toUpperCase();
     if (prods[k]) saida.push({ tipo, sku: k, texto: String(b.texto || 'Me conta suas medidas que eu te digo o tamanho'), produto: prods[k] });
@@ -146,15 +146,16 @@ if (!saida.length) { saida.push({ tipo: 'texto', texto: 'Desculpa, me enrolei aq
 
 // Versão em texto (para quem não desenha blocos: bateria, avisos guardados, testes)
 const brl = (v) => (v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));
-const linha = (p) => '• ' + p.nome + ' — ' + brl(p.preco) + ' (Pix ' + brl(p.preco_pix) + ')' + (p.tamanhos ? ' · tam. ' + p.tamanhos.join(', ') : '');
+// Sem "preco": true o cartão mostra só o produto (o cliente vê o preço quando pergunta ou escolhe)
+const linha = (p, comPreco = true) => '• ' + p.nome + (comPreco ? ' — ' + brl(p.preco) + ' no cartão (Pix ' + brl(p.preco_pix) + ')' : '') + (p.tamanhos ? ' · tam. ' + p.tamanhos.join(', ') : '');
 const partes = saida.map((b) => {
   switch (b.tipo) {
     case 'texto': return b.texto + (b.botoes.length ? '\\n[' + b.botoes.map((x) => x.titulo).join('] [') + ']' : '');
     case 'menu': return b.corpo + '\\n' + b.opcoes.map((o) => '• ' + o.titulo).join('\\n');
-    case 'produto': return (b.texto ? b.texto + '\\n' : '') + linha(b.produto);
+    case 'produto': return (b.texto ? b.texto + '\\n' : '') + linha(b.produto, b.mostrar_preco);
     case 'midias': return (b.texto ? b.texto + '\\n' : '') + '[fotos de ' + b.produto.nome + ']';
-    case 'carrossel_produtos': return (b.corpo ? b.corpo + '\\n' : '') + b.produtos.map(linha).join('\\n');
-    case 'vitrine': return b.cabecalho + (b.corpo ? '\\n' + b.corpo : '') + '\\n' + b.secoes.map((s) => s.titulo + ':\\n' + s.produtos.map(linha).join('\\n')).join('\\n');
+    case 'carrossel_produtos': return (b.corpo ? b.corpo + '\\n' : '') + b.produtos.map((p) => linha(p, b.mostrar_preco)).join('\\n');
+    case 'vitrine': return b.cabecalho + (b.corpo ? '\\n' + b.corpo : '') + '\\n' + b.secoes.map((s) => s.titulo + ':\\n' + s.produtos.map((p) => linha(p, b.mostrar_preco)).join('\\n')).join('\\n');
     case 'catalogo': return b.corpo + ' [Ver catálogo]';
     case 'tamanho': return b.texto + '\\n[formulário de tamanho: altura, peso e caimento da ' + b.produto.nome + ']';
     case 'comparacao': return (b.texto ? b.texto + '\\n' : '') + '[comparação lado a lado]\\n' + b.produtos.map((p) => linha(p) + Object.values(p.atributos || {}).map((a) => '\\n   ' + a).join('')).join('\\n');
@@ -537,7 +538,7 @@ CONVERSA:
 
 Turnos em que o CLIENTE aparece como "#pagamento_aprovado", "#pagamento_recusado" ou "#pagamento_rastreio_avancou" não são falas do cliente: é o sistema da loja avisando o agente sobre o pagamento ou sobre uma etapa nova da entrega. A resposta do AGENTE nesses turnos é uma mensagem que ele mandou ao cliente por iniciativa própria; avalie se ela avisa corretamente o que aconteceu.
 
-As respostas do AGENTE aparecem para o cliente como blocos visuais (cartões de produto com foto, preço e Pix; carrosséis; menus; botões). Na conversa abaixo, os cartões aparecem como linhas "• nome — preço (Pix ...)" e os botões entre colchetes. Avalie também a curadoria: no máximo 5 peças por vez (salvo se o cliente pedir para ver tudo), produtos coerentes com o pedido e texto curto.
+As respostas do AGENTE aparecem para o cliente como blocos visuais (cartões de produto com foto e nome; carrosséis; menus; botões). Na conversa abaixo, os cartões aparecem como linhas "• nome · tam. ..." e, quando o preço já deve aparecer, "• nome — preço no cartão (Pix ...)"; os botões aparecem entre colchetes. PREÇO: no primeiro contato os produtos aparecem sem preço; o preço vem quando o cliente pergunta, escolhe uma peça ou o tamanho, ou no resumo; ao falar o preço, o agente diz primeiro o valor no cartão (com parcelamento) e depois oferece o Pix como condição especial, sem inventar prazo para essa condição. Avalie também a curadoria: no máximo 5 peças por vez (salvo se o cliente pedir para ver tudo), produtos coerentes com o pedido e texto curto.
 
 LINKS E CÓDIGOS: o link de pagamento e o código de rastreio (formato OLD-TESTE-000000) são fictícios e corretos de usar. O agente nunca pode inventar um código de rastreio, confirmar um pagamento que não consta como aprovado no banco, nem inventar prazo de entrega.
 

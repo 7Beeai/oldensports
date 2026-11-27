@@ -8,11 +8,14 @@ const md = (s) => String(s ?? '')
   .replace(/\*\*([^*]+)\*\*/g, '*$1*')
   .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1: $2');
 const idAcao = (acao, p) => corta(acao + '|' + p.item_group_id + '|' + p.nome, 256);
-const ficha = (p) => {
+// Primeiro contato: só o produto (nome e tamanhos). Com o preço: cartão primeiro e o Pix como condição especial.
+const ficha = (p, comPreco) => {
+  const tamanhos = (p.tamanhos || []).length ? '\nTamanhos: ' + p.tamanhos.join(', ') : '';
+  if (!comPreco) return '*' + p.nome + '*' + tamanhos;
   const promo = p.preco_original && p.preco_original > p.preco ? '~' + brl(p.preco_original) + '~ ' : '';
-  return '*' + p.nome + '*\n' + promo + brl(p.preco) + (p.parcelamento ? ' no cartão (' + p.parcelamento + ')' : '')
-    + (p.preco_pix ? '\nou ' + brl(p.preco_pix) + ' no Pix' : '')
-    + ((p.tamanhos || []).length ? '\nTamanhos: ' + p.tamanhos.join(', ') : '');
+  return '*' + p.nome + '*\n' + promo + brl(p.preco) + ' no cartão' + (p.parcelamento ? ' (' + p.parcelamento + ')' : '')
+    + (p.preco_pix && p.preco_pix < p.preco ? '\n✨ Condição especial no Pix: ' + brl(p.preco_pix) : '')
+    + tamanhos;
 };
 const artigo = (nome) => (/^\S*a\b/i.test(String(nome || '').trim()) ? 'a' : 'o');
 const linkVideo = (u) => String(u || '').replace('youtube.com/embed/', 'youtube.com/watch?v=');
@@ -41,7 +44,7 @@ for (const item of $input.all()) {
     type: 'cta_url', body: { text: corta(md(corpo), 1024) }, action: { name: 'cta_url', parameters: { display_text: corta(rotulo, 20), url: link } },
   } });
   // Cartão de produto sem catálogo: foto no topo, preço no corpo e 3 botões
-  const cartao = (p, extra) => botoes((extra ? extra + '\n\n' : '') + ficha(p), [
+  const cartao = (p, extra, comPreco) => botoes((extra ? extra + '\n\n' : '') + ficha(p, comPreco), [
     { id: idAcao('quero', p), titulo: 'Quero essa' },
     { id: idAcao('fotos', p), titulo: 'Ver mais fotos' },
     { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' },
@@ -74,12 +77,12 @@ for (const item of $input.all()) {
         } });
         break;
       case 'produto':
-        if (cat) { if (b.texto) texto(b.texto); fichaNativa(p); } else cartao(p, b.texto);
+        if (cat) { if (b.texto) texto(b.texto); fichaNativa(p); } else cartao(p, b.texto, b.mostrar_preco);
         break;
       case 'carrossel_produtos': {
         const ps = (b.produtos || []).slice(0, 10);
         if (cat) listaNativa('Separei pra você', b.corpo, [{ titulo: 'Sugestões', produtos: ps }]);
-        else { if (b.corpo) texto(b.corpo); ps.slice(0, 5).forEach((x) => cartao(x)); }
+        else { if (b.corpo) texto(b.corpo); ps.slice(0, 5).forEach((x) => cartao(x, '', b.mostrar_preco)); }
         break;
       }
       case 'vitrine': {
@@ -89,7 +92,7 @@ for (const item of $input.all()) {
           // Sem catálogo: lista interativa (até 10 peças); tocar numa peça é o mesmo que "Quero essa"
           let resta = 10;
           const sections = secoes.map((s) => {
-            const rows = s.produtos.slice(0, resta).map((x) => ({ id: idAcao('quero', x), title: corta(x.nome, 24), description: corta(brl(x.preco) + (x.preco_pix ? ' · Pix ' + brl(x.preco_pix) : ''), 72) }));
+            const rows = s.produtos.slice(0, resta).map((x) => ({ id: idAcao('quero', x), title: corta(x.nome, 24), description: corta(b.mostrar_preco ? brl(x.preco) + ' no cartão' + (x.preco_pix ? ' · Pix ' + brl(x.preco_pix) : '') : ((x.tamanhos || []).length ? 'Tam.: ' + x.tamanhos.join(', ') : ''), 72) }));
             resta -= rows.length;
             return { title: corta(s.titulo, 24), rows };
           }).filter((s) => s.rows.length);
@@ -113,7 +116,7 @@ for (const item of $input.all()) {
       }
       case 'comparacao': {
         if (b.texto) texto(b.texto);
-        (b.produtos || []).forEach((x) => imagem(x.imagem, ficha(x) + Object.keys(rotulos).filter((k) => (x.atributos || {})[k])
+        (b.produtos || []).forEach((x) => imagem(x.imagem, ficha(x, true) + Object.keys(rotulos).filter((k) => (x.atributos || {})[k])
           .map((k) => '\n' + rotulos[k] + ': ' + String(x.atributos[k]).replace(/^[^:]{0,20}:\s*/, '')).join('')));
         if (baseN8n && (b.skus || []).length === 2) linkBotao('Quer ver as duas lado a lado?', 'Ver lado a lado', baseN8n + '/webhook/olden-comparacao?a=' + encodeURIComponent(b.skus[0]) + '&b=' + encodeURIComponent(b.skus[1]));
         break;

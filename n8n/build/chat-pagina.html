@@ -103,13 +103,13 @@ form button:disabled{opacity:.5}
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function rolar() { caixa.scrollTop = caixa.scrollHeight; }
 
-  function cartao(p, grande) {
+  function cartao(p, grande, comPreco) {
     var c = el('div', 'card' + (grande ? ' grande' : ''));
     var img = urlSegura(p.imagem);
     c.innerHTML = (img ? '<img loading="lazy" alt="' + esc(p.nome) + '" src="' + esc(img) + '">' : '') +
       '<div class="info"><div class="nome">' + esc(p.nome) + '</div>' +
-      '<div class="preco">' + (p.preco_original && p.preco_original > p.preco ? '<span class="de">' + brl(p.preco_original) + '</span>' : '') + brl(p.preco) + '</div>' +
-      (p.preco_pix ? '<div class="pix">' + brl(p.preco_pix) + ' no Pix</div>' : '') +
+      (comPreco ? '<div class="preco">' + (p.preco_original && p.preco_original > p.preco ? '<span class="de">' + brl(p.preco_original) + '</span>' : '') + brl(p.preco) + ' no cartão</div>' +
+      (p.preco_pix && p.preco_pix < p.preco ? '<div class="pix">✨ Condição especial no Pix: ' + brl(p.preco_pix) + '</div>' : '') : '') +
       (p.tamanhos && p.tamanhos.length ? '<div class="tam">Tam.: ' + esc(p.tamanhos.join(', ')) + '</div>' : '') + '</div>';
     var b = el('button', null, 'Quero esse');
     b.type = 'button';
@@ -138,16 +138,16 @@ form button:disabled{opacity:.5}
       box.appendChild(menu);
     } else if (b.tipo === 'produto') {
       if (b.texto) box.appendChild(el('div', 'legenda', formatar(b.texto)));
-      var t1 = el('div', 'trilho'); t1.appendChild(cartao(b.produto, true)); box.appendChild(t1);
+      var t1 = el('div', 'trilho'); t1.appendChild(cartao(b.produto, true, b.mostrar_preco)); box.appendChild(t1);
       box.appendChild(botoesAcao([{ titulo: 'Ver mais fotos' }], function () { enviar('Quero ver mais fotos do ' + b.produto.nome); }));
     } else if (b.tipo === 'carrossel_produtos') {
       if (b.corpo) box.appendChild(el('div', 'legenda', formatar(b.corpo)));
-      var t2 = el('div', 'trilho'); (b.produtos || []).forEach(function (p) { t2.appendChild(cartao(p)); }); box.appendChild(t2);
+      var t2 = el('div', 'trilho'); (b.produtos || []).forEach(function (p) { t2.appendChild(cartao(p, false, b.mostrar_preco)); }); box.appendChild(t2);
     } else if (b.tipo === 'vitrine') {
       box.appendChild(el('div', 'legenda', '<b>' + esc(b.cabecalho) + '</b>' + (b.corpo ? '<br>' + formatar(b.corpo) : '')));
       (b.secoes || []).forEach(function (s) {
         box.appendChild(el('div', 'secao', esc(s.titulo)));
-        var t3 = el('div', 'trilho'); (s.produtos || []).forEach(function (p) { t3.appendChild(cartao(p)); }); box.appendChild(t3);
+        var t3 = el('div', 'trilho'); (s.produtos || []).forEach(function (p) { t3.appendChild(cartao(p, false, b.mostrar_preco)); }); box.appendChild(t3);
       });
     } else if (b.tipo === 'midias') {
       if (b.texto) box.appendChild(el('div', 'legenda', formatar(b.texto)));
