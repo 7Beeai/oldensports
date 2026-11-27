@@ -138,7 +138,7 @@ Ao tocar em **Ver meu tamanho**, a resposta volta para a Lia com a mesma frase d
 | 7 | "quero no M, no pix, meu nome é Ana" e confirme | Resumo, depois o botão **Pagar agora** |
 | 8 | Pague na página de teste | Sem você escrever nada: o aviso de pagamento aprovado e, a cada 2 minutos, uma etapa do rastreio |
 
-Para começar do zero com o seu número:
+Para começar do zero com o seu número, mande **#reiniciar** no WhatsApp (só funciona para os números de `whatsapp_numeros_teste`). Ou, pelo Supabase:
 
 ```sql
 select limpar_whatsapp_teste('wa:55DDDNUMERO');

@@ -203,3 +203,24 @@ begin
   delete from whatsapp_mensagens where sessao = p_sessao;
   return jsonb_build_object('conversas_apagadas', v_conversas);
 end $$;
+
+-- 8. "#reiniciar" no WhatsApp: zera a conversa, só para os números de teste
+create or replace function reiniciar_conversa_teste(p_sessao text)
+returns text
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_num  text := regexp_replace(coalesce(p_sessao, ''), '\D', '', 'g');
+  v_lista text[];
+begin
+  select array_agg(regexp_replace(regexp_replace(x, '\D', '', 'g'), '^55(\d{2})9(\d{8})$', '55\1\2'))
+    into v_lista
+    from unnest(string_to_array(coalesce((select valor from configuracao where chave = 'whatsapp_numeros_teste'), ''), ',')) x
+   where trim(x) <> '';
+  if v_lista is null or not (regexp_replace(v_num, '^55(\d{2})9(\d{8})$', '55\1\2') = any (v_lista)) then
+    return 'nao_permitido';
+  end if;
+  perform limpar_whatsapp_teste(p_sessao);
+  return 'reiniciada';
+end $$;

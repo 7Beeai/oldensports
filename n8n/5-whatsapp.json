@@ -199,6 +199,70 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000411",
+      "name": "É reinício?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        950,
+        -250
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "É reinício?",
+              "leftValue": "={{ String($json.texto || '').trim().toLowerCase() === '#reiniciar' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000412",
+      "name": "Reiniciar conversa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1150,
+        -250
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select reiniciar_conversa_teste($1) as resultado",
+        "options": {
+          "queryReplacement": "={{ $json.sessao }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000413",
+      "name": "Aviso de reinício",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1350,
+        -250
+      ],
+      "parameters": {
+        "jsCode": "const r = $json.resultado;\nreturn [{ json: {\n  sessao: $('Registrar entrada').first().json.sessao,\n  cfg: $('Configuração do WhatsApp').first().json.cfg,\n  blocos: [{ tipo: 'texto', botoes: [], texto: r === 'reiniciada'\n    ? 'Conversa reiniciada ✅ Memória, pedidos, chamados e histórico deste número foram apagados. Pode começar um teste novo.'\n    : 'O #reiniciar só funciona para os números de teste.' }],\n} }];"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000414",
       "name": "Modo real?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -232,7 +296,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000412",
+      "id": "b2000000-0000-4000-8000-000000000415",
       "name": "Marcar como lida",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -255,7 +319,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000413",
+      "id": "b2000000-0000-4000-8000-000000000416",
       "name": "Mensagem para a Lia",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -291,7 +355,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000414",
+      "id": "b2000000-0000-4000-8000-000000000417",
       "name": "Lia responde",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
@@ -314,7 +378,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000415",
+      "id": "b2000000-0000-4000-8000-000000000418",
       "name": "Juntar resposta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -327,7 +391,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000416",
+      "id": "b2000000-0000-4000-8000-000000000419",
       "name": "Tem provador?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -361,7 +425,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000417",
+      "id": "b2000000-0000-4000-8000-000000000420",
       "name": "Última selfie",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -380,7 +444,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000418",
+      "id": "b2000000-0000-4000-8000-000000000421",
       "name": "Tem selfie?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -414,7 +478,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000419",
+      "id": "b2000000-0000-4000-8000-000000000422",
       "name": "Sem selfie",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -427,7 +491,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000420",
+      "id": "b2000000-0000-4000-8000-000000000423",
       "name": "Selfie de teste?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -461,7 +525,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000421",
+      "id": "b2000000-0000-4000-8000-000000000424",
       "name": "Baixar selfie de teste",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -484,7 +548,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000422",
+      "id": "b2000000-0000-4000-8000-000000000425",
       "name": "Endereço da selfie",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -504,7 +568,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000423",
+      "id": "b2000000-0000-4000-8000-000000000426",
       "name": "Baixar selfie",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -529,7 +593,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000424",
+      "id": "b2000000-0000-4000-8000-000000000427",
       "name": "Pedido ao provador",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -542,7 +606,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000425",
+      "id": "b2000000-0000-4000-8000-000000000428",
       "name": "Gerar prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -565,7 +629,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000426",
+      "id": "b2000000-0000-4000-8000-000000000429",
       "name": "Ler prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -578,7 +642,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000427",
+      "id": "b2000000-0000-4000-8000-000000000430",
       "name": "Apagar referência da selfie",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -596,7 +660,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000428",
+      "id": "b2000000-0000-4000-8000-000000000431",
       "name": "Subir prévia?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -630,7 +694,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000429",
+      "id": "b2000000-0000-4000-8000-000000000432",
       "name": "Subir prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -671,7 +735,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000430",
+      "id": "b2000000-0000-4000-8000-000000000433",
       "name": "Juntar prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -684,7 +748,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000431",
+      "id": "b2000000-0000-4000-8000-000000000434",
       "name": "Montar envios",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -697,7 +761,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000432",
+      "id": "b2000000-0000-4000-8000-000000000435",
       "name": "Enviar de verdade?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -731,7 +795,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000433",
+      "id": "b2000000-0000-4000-8000-000000000436",
       "name": "Enviar ao WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -766,7 +830,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000434",
+      "id": "b2000000-0000-4000-8000-000000000437",
       "name": "Resultado do envio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -780,7 +844,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000435",
+      "id": "b2000000-0000-4000-8000-000000000438",
       "name": "Registrar saída",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -797,7 +861,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000436",
+      "id": "b2000000-0000-4000-8000-000000000439",
       "name": "Avisos da loja",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -810,7 +874,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000437",
+      "id": "b2000000-0000-4000-8000-000000000440",
       "name": "Avisos pendentes",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -826,7 +890,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000438",
+      "id": "b2000000-0000-4000-8000-000000000441",
       "name": "Preparar avisos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -839,7 +903,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000439",
+      "id": "b2000000-0000-4000-8000-000000000442",
       "name": "Feed do catálogo",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -856,7 +920,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000440",
+      "id": "b2000000-0000-4000-8000-000000000443",
       "name": "Montar feed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -871,7 +935,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000441",
+      "id": "b2000000-0000-4000-8000-000000000444",
       "name": "Responder feed",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -988,7 +1052,47 @@
       "main": [
         [
           {
+            "node": "É reinício?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É reinício?": {
+      "main": [
+        [
+          {
+            "node": "Reiniciar conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Modo real?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reiniciar conversa": {
+      "main": [
+        [
+          {
+            "node": "Aviso de reinício",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aviso de reinício": {
+      "main": [
+        [
+          {
+            "node": "Montar envios",
             "type": "main",
             "index": 0
           }

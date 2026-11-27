@@ -904,6 +904,17 @@ return [{ json: { html } }];`;
       '={{ JSON.stringify($json) }}'),
     // Mensagem repetida (mesmo wamid): o insert não devolve nada e o fluxo para aqui
     se('Mensagem nova?', [900, 0], '!!$json.id && !!$json.sessao'),
+    // "#reiniciar" (só números de teste): zera a conversa para testar do zero
+    se('É reinício?', [950, -250], "String($json.texto || '').trim().toLowerCase() === '#reiniciar'"),
+    pg('Reiniciar conversa', [1150, -250], 'select reiniciar_conversa_teste($1) as resultado', '={{ $json.sessao }}'),
+    code('Aviso de reinício', [1350, -250], `const r = $json.resultado;
+return [{ json: {
+  sessao: $('Registrar entrada').first().json.sessao,
+  cfg: $('Configuração do WhatsApp').first().json.cfg,
+  blocos: [{ tipo: 'texto', botoes: [], texto: r === 'reiniciada'
+    ? 'Conversa reiniciada ✅ Memória, pedidos, chamados e histórico deste número foram apagados. Pode começar um teste novo.'
+    : 'O #reiniciar só funciona para os números de teste.' }],
+} }];`),
     se('Modo real?', [1000, 0], "$('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
     meta('Marcar como lida', [1200, -120], 'POST', `={{ ${graph} + ${phone} + '/messages' }}`, {
       node: { onError: 'continueRegularOutput' },
@@ -1031,7 +1042,10 @@ return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'envi
     'Ler evento': main('É mensagem?'),
     'É mensagem?': main('Registrar entrada', 'Atualizar status'),
     'Registrar entrada': main('Mensagem nova?'),
-    'Mensagem nova?': main('Modo real?'),
+    'Mensagem nova?': main('É reinício?'),
+    'É reinício?': main('Reiniciar conversa', 'Modo real?'),
+    'Reiniciar conversa': main('Aviso de reinício'),
+    'Aviso de reinício': main('Montar envios'),
     'Modo real?': main('Marcar como lida', 'Mensagem para a Lia'),
     'Marcar como lida': main('Mensagem para a Lia'),
     'Mensagem para a Lia': main('Lia responde'),
