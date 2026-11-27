@@ -193,9 +193,9 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre uma peça específica.",
+        "toolDescription": "Registra que o cliente demonstrou interesse num produto. Chame quando o cliente perguntar sobre uma peça específica. Só aceita códigos de produto (OLD-...) que vieram da busca: nunca e-mail, número de pedido ou texto.",
         "operation": "executeQuery",
-        "query": "insert into interesses (conversa_id, sku)\nselect (j->>'conversa_id')::uuid, j->>'sku'\nfrom (select $1::jsonb as j) p\nreturning 'interesse registrado' as resultado, sku;",
+        "query": "select registrar_interesse(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'sku') as resultado",
         "options": {
           "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, sku: $fromAI('sku', 'Código do modelo (OLD-P...) ou do tamanho (OLD-...) que veio da busca', 'string') }) }}"
         }
@@ -269,7 +269,7 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço, preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.",
+        "toolDescription": "Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço atual no cartão (preco), preço antigo quando está em promoção (preco_de), preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.",
         "operation": "executeQuery",
         "query": "select * from buscar_produtos($1::jsonb->>'consulta',\n  coalesce(nullif($1::jsonb->>'filtros', '')::jsonb, '{}'::jsonb),\n  coalesce(($1::jsonb->>'limite')::int, 5))",
         "options": {
@@ -336,6 +336,25 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000017",
+      "name": "chamar_equipe",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2060,
+        260
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Passa o caso para a equipe humana da Olden e avisa a equipe na hora. Chame assim que o cliente pedir uma pessoa ou o assunto for troca, devolução, reclamação, atraso, pedido antigo, problema de pagamento ou algo que você não pode resolver. Depois, diga ao cliente numa frase que a equipe foi avisada e responde por aqui.",
+        "operation": "executeQuery",
+        "query": "select chamar_equipe(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'motivo', $1::jsonb->>'resumo', nullif($1::jsonb->>'referencia', '')) as resultado",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, motivo: $fromAI('motivo', 'Um destes: troca, devolucao, reclamacao, atraso, pedido_antigo, pagamento, pediu_humano, outro', 'string'), resumo: $fromAI('resumo', 'Resumo para a equipe em 1 a 3 frases: o que o cliente quer e o que ele já informou (produto, tamanho, datas)', 'string'), referencia: $fromAI('referencia', 'Número do pedido, e-mail da compra ou outro dado que o cliente passou para localizar a compra; vazio se não houver', 'string') }) }}"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000018",
       "name": "Ler blocos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -348,7 +367,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000018",
+      "id": "b2000000-0000-4000-8000-000000000019",
       "name": "Conferir produtos",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -365,7 +384,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000019",
+      "id": "b2000000-0000-4000-8000-000000000020",
       "name": "Validar blocos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -541,6 +560,17 @@
       ]
     },
     "detalhes_produto": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Olden",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "chamar_equipe": {
       "ai_tool": [
         [
           {

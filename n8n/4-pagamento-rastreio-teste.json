@@ -446,6 +446,79 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000321",
+      "name": "Fila do WhatsApp",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        820
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select count(*)::int as n from mensagens_saida\nwhere sessao like 'wa:%' and enviada_whatsapp_em is null and criado_em > now() - interval '1 day'",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000322",
+      "name": "Tem fila?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        820
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Tem fila?",
+              "leftValue": "={{ $json.n > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000323",
+      "name": "Mandar fila no WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        820
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000324",
       "name": "Comparação",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -462,7 +535,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000322",
+      "id": "b2000000-0000-4000-8000-000000000325",
       "name": "Buscar comparação",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -479,7 +552,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000323",
+      "id": "b2000000-0000-4000-8000-000000000326",
       "name": "Montar comparação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -492,7 +565,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000324",
+      "id": "b2000000-0000-4000-8000-000000000327",
       "name": "Responder comparação",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -516,7 +589,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000325",
+      "id": "b2000000-0000-4000-8000-000000000328",
       "name": "Rastreio",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -533,7 +606,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000326",
+      "id": "b2000000-0000-4000-8000-000000000329",
       "name": "Buscar etapas",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -551,7 +624,7 @@
       "alwaysOutputData": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000327",
+      "id": "b2000000-0000-4000-8000-000000000330",
       "name": "Montar rastreio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -564,7 +637,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000328",
+      "id": "b2000000-0000-4000-8000-000000000331",
       "name": "Responder rastreio",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -726,6 +799,33 @@
         [
           {
             "node": "Etapas novas do rastreio",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fila do WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fila do WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Tem fila?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem fila?": {
+      "main": [
+        [
+          {
+            "node": "Mandar fila no WhatsApp",
             "type": "main",
             "index": 0
           }
