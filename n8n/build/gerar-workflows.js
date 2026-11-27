@@ -210,7 +210,7 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
       "select $1::jsonb->>'sessao' as sessao,\n       simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as mensagem,\n       $1::jsonb->>'modelo' as modelo, $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela",
       '={{ JSON.stringify($json) }}'),
     pg('Contexto do atendimento', [440, 0],
-      "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo) as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+      "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
       '={{ JSON.stringify($json) }}'),
     {
       id: id(), name: 'Agente Olden', type: '@n8n/n8n-nodes-langchain.agent', typeVersion: 2.2, position: [700, 0],
