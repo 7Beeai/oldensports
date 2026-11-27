@@ -124,7 +124,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' or $1::jsonb->>'sessao' like 'teste:wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+        "query": "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || contexto_extra(c.conversa_id, $1::jsonb->>'sessao') as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
         "options": {
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }
@@ -345,11 +345,11 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Passa o caso para a equipe humana da Olden e avisa a equipe na hora. Chame assim que o cliente pedir uma pessoa ou o assunto for troca, devolução, reclamação, atraso, pedido antigo, problema de pagamento ou algo que você não pode resolver. Depois, diga ao cliente numa frase que a equipe foi avisada e responde por aqui.",
+        "toolDescription": "Passa um caso de pós-venda para a equipe humana e avisa a equipe na hora. Use SÓ quando: o cliente pedir para falar com uma pessoa; troca ou devolução de compra já feita; atraso ou problema com pedido já feito; problema de pagamento (ex.: diz que pagou e não aparece); reclamação. NÃO use para dúvidas de pré-venda (frete, prazo, troca, CNPJ, originalidade, cupom): responda com as Informações da loja. Se a equipe já foi chamada nesta conversa (veja Situação atual), chamar de novo só acrescenta informação nova ao mesmo caso.",
         "operation": "executeQuery",
         "query": "select chamar_equipe(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'motivo', $1::jsonb->>'resumo', nullif($1::jsonb->>'referencia', '')) as resultado",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, motivo: $fromAI('motivo', 'Um destes: troca, devolucao, reclamacao, atraso, pedido_antigo, pagamento, pediu_humano, outro', 'string'), resumo: $fromAI('resumo', 'Resumo para a equipe em 1 a 3 frases: o que o cliente quer e o que ele já informou (produto, tamanho, datas)', 'string'), referencia: $fromAI('referencia', 'Número do pedido, e-mail da compra ou outro dado que o cliente passou para localizar a compra; vazio se não houver', 'string') }) }}"
+          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, motivo: $fromAI('motivo', 'Um destes, e só estes: troca, devolucao, atraso, pedido_antigo, pagamento, reclamacao, pediu_humano', 'string'), resumo: $fromAI('resumo', 'Resumo para a equipe em 1 a 3 frases: o que o cliente quer e o que ele já informou (produto, tamanho, datas)', 'string'), referencia: $fromAI('referencia', 'Número do pedido, e-mail da compra ou outro dado que o cliente passou para localizar a compra; vazio se não houver', 'string') }) }}"
         }
       }
     },
