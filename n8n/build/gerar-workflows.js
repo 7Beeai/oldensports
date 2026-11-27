@@ -246,7 +246,7 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
       "select gerar_pagamento(($1::jsonb->>'conversa_id')::uuid) as resultado",
       `conversa_id: ${C}`),
     tool('buscar_produtos', [1420, 260],
-      'Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço atual no cartão (preco), preço antigo quando está em promoção (preco_de), preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.',
+      'Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço no cartão (preco), preço no Pix (preco_pix, o valor promocional que só vale no Pix), tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.',
       "select * from buscar_produtos($1::jsonb->>'consulta',\n  coalesce(nullif($1::jsonb->>'filtros', '')::jsonb, '{}'::jsonb),\n  coalesce(($1::jsonb->>'limite')::int, 5))",
       `consulta: $fromAI('consulta', 'O que o cliente procura, em palavras simples (ex.: camisa verde feminina do Palmeiras). Pode ficar vazio se só usar filtros', 'string'), filtros: $fromAI('filtros', 'JSON com filtros opcionais: departamento (camisas, bones, calcados, equipamentos, roupas, acessorios, kits, bebe, infantil, outros), clube (ex.: Palmeiras), genero (masculino, feminino, unissex, infantil), faixa_etaria (adulto, infantil, bebe), tamanho (ex.: M), preco_max (número). Use {} se não houver filtro', 'string'), limite: $fromAI('limite', 'Quantos modelos trazer, de 1 a 10 (normalmente 5)', 'number')`),
     tool('ver_vitrine', [1580, 260],

@@ -269,7 +269,7 @@
       ],
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço atual no cartão (preco), preço antigo quando está em promoção (preco_de), preço no Pix, tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.",
+        "toolDescription": "Busca produtos da loja com estoque. Use para QUALQUER pedido de produto. Devolve até 10 modelos com código do modelo (item_group_id), nome, preço no cartão (preco), preço no Pix (preco_pix, o valor promocional que só vale no Pix), tamanhos disponíveis com os códigos de cada tamanho (skus, na mesma ordem), resumo, foto e link.",
         "operation": "executeQuery",
         "query": "select * from buscar_produtos($1::jsonb->>'consulta',\n  coalesce(nullif($1::jsonb->>'filtros', '')::jsonb, '{}'::jsonb),\n  coalesce(($1::jsonb->>'limite')::int, 5))",
         "options": {
