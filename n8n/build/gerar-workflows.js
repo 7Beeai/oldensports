@@ -1151,7 +1151,8 @@ const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b,
   };
   save('6-simulador-clientes.json', {
     name: 'Olden | 6. Simulador de clientes', nodes, connections, pinData: {},
-    settings: { executionOrder: 'v1' },
+    // O n8n encerra execuções depois de 5 minutos por padrão; uma rodada leva bem mais
+    settings: { executionOrder: 'v1', executionTimeout: 3600 },
   });
 
   // ---------- 6b. Um turno da conversa (chama a si mesmo) ----------
@@ -1190,6 +1191,6 @@ const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b,
   };
   save('6b-simulador-turno.json', {
     name: 'Olden | 6b. Simulador: um turno', nodes: nodesB, connections: connectionsB, pinData: {},
-    settings: { executionOrder: 'v1' },
+    settings: { executionOrder: 'v1', executionTimeout: 1800 },
   });
 }
