@@ -124,7 +124,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+        "query": "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' or $1::jsonb->>'sessao' like 'teste:wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
         "options": {
           "queryReplacement": "={{ JSON.stringify($json) }}"
         }

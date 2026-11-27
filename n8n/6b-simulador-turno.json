@@ -1,0 +1,348 @@
+{
+  "name": "Olden | 6b. Simulador: um turno",
+  "nodes": [
+    {
+      "id": "b2000000-0000-4000-8000-000000000601",
+      "name": "Entrada",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000602",
+      "name": "Montar fala do cliente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Monta o pedido para a IA que faz o papel do cliente, com a conversa até agora.\nconst s = $json;\nconst p = s.persona || {};\nconst c = s.combinacao || {};\nconst conversa = (s.historico || []).map((h) => (h.de === 'cliente' ? 'VOCÊ (cliente): ' : 'ATENDENTE (Lia): ') + h.texto).join('\\n\\n');\nconst prompt_cliente = `Você vai interpretar um cliente da loja Olden Sports conversando pelo ${s.canal === 'whatsapp' ? 'WhatsApp' : 'chat do site'} com a atendente, a Lia. Fique 100% no personagem. Isto é um teste de qualidade da atendente: aja como um cliente de verdade agiria, inclusive sendo difícil quando a persona é difícil.\n\nSUA PERSONA\n${JSON.stringify(p, null, 1)}\nPerfil: ${c.perfil}\nIntenção: ${c.intencao}\nProduto que procura: ${c.produto}\nTime: ${c.time}\nDesafio que você deve trazer em algum momento natural da conversa: ${c.desafio}\n\nCOMO JOGAR\n- Uma mensagem por vez, no estilo de escrita da persona. Mensagens de WhatsApp são curtas.\n- Reaja ao que a atendente acabou de dizer. Produtos aparecem como linhas com \"•\" e botões aparecem [entre colchetes]: você pode escolher um produto, perguntar dele ou tocar num botão (para tocar, escreva exatamente o texto do botão).\n- Não diga que recebeu algo que a atendente não mandou. Não fale como robô nem explique que é um teste.\n- Ações especiais (campo \"acao\"):\n  - \"selfie\": manda uma selfie (só no WhatsApp, e só se a atendente pediu ou se fizer sentido).\n  - \"audio\": manda um áudio em vez de escrever.\n  - \"pagar\": paga o link de pagamento (só depois de receber o link).\n  - \"encerrar\": termina a conversa (comprou e pagou, desistiu, foi passado para um humano ou não tem mais nada a falar). Não enrole: quando o assunto acabar, encerre.\n- Turno ${s.turno + 1} de no máximo ${s.cfg.max_turnos}.\n\nCONVERSA ATÉ AGORA\n${conversa || '(ainda não começou: mande a sua primeira mensagem, parecida com a primeira_mensagem da persona)'}\n\nResponda SÓ com um JSON, sem texto fora dele:\n{\"acao\": \"mensagem | selfie | audio | pagar | encerrar\", \"mensagem\": \"o que você escreve (pode ser vazio em selfie, audio ou pagar)\", \"desfecho\": \"só quando encerrar: comprou | desistiu | humano | satisfeito\"}`;\nreturn [{ json: { ...s, prompt_cliente } }];\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000603",
+      "name": "Cliente simulado",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        400,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt_cliente }}",
+        "hasOutputParser": false
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000604",
+      "name": "Modelo do cliente",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        400,
+        220
+      ],
+      "parameters": {
+        "model": "={{ $json.cfg.modelo_cliente }}",
+        "options": {
+          "maxRetries": 2,
+          "timeout": 90000
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000605",
+      "name": "Ler fala do cliente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Lê a fala do cliente simulado e decide o que a Lia recebe.\nconst s = $('Montar fala do cliente').first().json;\nconst bruto = String($json.text ?? '');\nlet f = {};\ntry { f = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1)); }\ncatch (e) { f = bruto.trim() && !$json.error ? { acao: 'mensagem', mensagem: bruto.trim().slice(0, 500) } : { acao: 'encerrar', desfecho: 'erro', mensagem: '' }; }\nconst acao = String(f.acao || 'mensagem').toLowerCase();\nconst texto = String(f.mensagem || '').trim();\nlet mensagem = texto;   // o que a Lia recebe\nlet exibido = texto;    // o que aparece na transcrição\nif (acao === 'selfie') {\n  mensagem = s.canal === 'whatsapp' ? '[FOTO RECEBIDA] O cliente mandou uma foto' + (texto ? ', com a legenda: ' + texto : '.') : (texto || 'mandei uma foto');\n  exibido = '[manda uma selfie]' + (texto ? ' ' + texto : '');\n} else if (acao === 'audio') {\n  mensagem = '[ÁUDIO] O cliente mandou um áudio, que você não consegue ouvir.';\n  exibido = '[manda um áudio]' + (texto ? ' (diria: ' + texto + ')' : '');\n} else if (acao === 'pagar') {\n  mensagem = '#pagamento_aprovado';\n  exibido = '[paga o link de pagamento]';\n}\nconst encerra = acao === 'encerrar' || (!mensagem && acao === 'mensagem');\nconst { prompt_cliente, ...estado } = s;\nreturn [{ json: {\n  ...estado, acao, exibido, continua: !encerra,\n  desfecho: encerra ? (String(f.desfecho || '').toLowerCase() || 'satisfeito') : null,\n  // campos que o Núcleo lê\n  mensagem, modelo: s.cfg.modelo_lia, esforco: s.cfg.esforco, janela: s.cfg.janela,\n} }];\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000606",
+      "name": "Continua?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Continua?",
+              "leftValue": "={{ $json.continua }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000607",
+      "name": "Lia responde",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        -100
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000608",
+      "name": "Registrar turno",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -100
+      ],
+      "parameters": {
+        "jsCode": "// Guarda a fala do cliente e a resposta da Lia, e avança o turno.\nconst s = $('Ler fala do cliente').first().json;\nconst r = $json || {};\nconst historico = [...(s.historico || []),\n  { de: 'cliente', texto: s.exibido },\n  { de: 'lia', texto: r.output ?? ('[ERRO DA LIA] ' + JSON.stringify(r.error ?? r).slice(0, 300)),\n    blocos: (r.blocos || []).map((b) => b.tipo), validacao: r.validacao || [] },\n];\nconst { mensagem, modelo, esforco, janela, exibido, acao, continua, ...estado } = s;\nreturn [{ json: { ...estado, historico, turno: s.turno + 1 } }];\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000609",
+      "name": "Mais um turno?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Mais um turno?",
+              "leftValue": "={{ $json.turno < $json.cfg.max_turnos }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000610",
+      "name": "Próximo turno",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        -200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000611",
+      "name": "Fim por limite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, desfecho: 'limite_de_turnos' } }];"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000612",
+      "name": "Fim da conversa",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        150
+      ],
+      "parameters": {
+        "jsCode": "// O cliente encerrou: guarda a última fala (se houver) e o desfecho.\nconst s = $json;\nconst historico = [...(s.historico || [])];\nif (s.exibido) historico.push({ de: 'cliente', texto: s.exibido });\nconst { mensagem, modelo, esforco, janela, exibido, acao, continua, ...estado } = s;\nreturn [{ json: { ...estado, historico, desfecho: s.desfecho || 'satisfeito' } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Entrada": {
+      "main": [
+        [
+          {
+            "node": "Montar fala do cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar fala do cliente": {
+      "main": [
+        [
+          {
+            "node": "Cliente simulado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modelo do cliente": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Cliente simulado",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cliente simulado": {
+      "main": [
+        [
+          {
+            "node": "Ler fala do cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler fala do cliente": {
+      "main": [
+        [
+          {
+            "node": "Continua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continua?": {
+      "main": [
+        [
+          {
+            "node": "Lia responde",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fim da conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lia responde": {
+      "main": [
+        [
+          {
+            "node": "Registrar turno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar turno": {
+      "main": [
+        [
+          {
+            "node": "Mais um turno?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mais um turno?": {
+      "main": [
+        [
+          {
+            "node": "Próximo turno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fim por limite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

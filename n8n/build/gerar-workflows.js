@@ -210,7 +210,7 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
       "select $1::jsonb->>'sessao' as sessao,\n       simular_pagamento_sessao($1::jsonb->>'sessao', $1::jsonb->>'mensagem') as mensagem,\n       $1::jsonb->>'modelo' as modelo, $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela",
       '={{ JSON.stringify($json) }}'),
     pg('Contexto do atendimento', [440, 0],
-      "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
+      "select c.*, prompt_montado(c.cliente_nome, c.status, c.situacao_pedido, c.catalogo)\n         || case when $1::jsonb->>'sessao' like 'wa:%' or $1::jsonb->>'sessao' like 'teste:wa:%' then E'\\n- Canal: WhatsApp (o cliente pode mandar fotos)'\n                 else E'\\n- Canal: página de chat (o cliente NÃO consegue mandar fotos: não ofereça o provador)' end as prompt_sistema,\n       $1::jsonb->>'mensagem' as mensagem, $1::jsonb->>'modelo' as modelo,\n       $1::jsonb->>'esforco' as esforco, ($1::jsonb->>'janela')::int as janela\nfrom contexto_atendimento($1::jsonb->>'sessao') c",
       '={{ JSON.stringify($json) }}'),
     {
       id: id(), name: 'Agente Olden', type: '@n8n/n8n-nodes-langchain.agent', typeVersion: 2.2, position: [700, 0],
@@ -1051,5 +1051,132 @@ return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'envi
   save('5-whatsapp.json', {
     name: 'Olden | 5. WhatsApp', nodes, connections, pinData: {},
     settings: { executionOrder: 'v1', executionTimeout: 300 },
+  });
+}
+
+// =====================================================================
+// 6. Simulador de clientes: personas geradas por IA conversam com a Lia
+//    e uma IA avaliadora dá nota por critério. 6b roda a conversa,
+//    um turno por execução, chamando a si mesmo até o cliente encerrar.
+// =====================================================================
+const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b, escolhido no n8n depois de importar
+{
+  seq = 500;
+  const js = (f) => fs.readFileSync(path.join(__dirname, 'simulador', f), 'utf8');
+  const chain = (name, position, campo) => ({
+    id: id(), name, type: '@n8n/n8n-nodes-langchain.chainLlm', typeVersion: 1.7, position, onError: 'continueRegularOutput',
+    parameters: { promptType: 'define', text: `={{ $json.${campo} }}`, hasOutputParser: false },
+  });
+  const se = (name, position, cond) => ({
+    id: id(), name, type: 'n8n-nodes-base.if', typeVersion: 2.2, position,
+    parameters: {
+      conditions: {
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+        conditions: [{ id: name, leftValue: `={{ ${cond} }}`, rightValue: '', operator: { type: 'boolean', operation: 'true', singleValue: true } }],
+        combinator: 'and',
+      },
+      options: {},
+    },
+  });
+  const nodes = [
+    { id: id(), name: 'Iniciar simulação', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0], parameters: {} },
+    // Também dá para iniciar pela URL: /webhook/olden-simulador?token=...&n=10&turnos=10
+    {
+      id: id(), name: 'Iniciar pela URL', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [0, 220],
+      webhookId: '9e2f6a10-3c4d-4b5e-8f60-a1b2c3d4e601',
+      parameters: { httpMethod: 'GET', path: 'olden-simulador', responseMode: 'onReceived', options: {} },
+    },
+    pg('Token do simulador', [200, 220], "select valor from configuracao where chave = 'simulador_token'", null),
+    se('Token certo?', [400, 220], "$('Iniciar pela URL').first().json.query.token === $json.valor"),
+    pg('Limpar testes anteriores', [600, 0], 'select limpar_testes() as limpeza', null, { executeOnce: true }),
+    code('O que simular', [800, 0], js('o-que-simular.js')),
+    chain('Criar persona', [1000, 0], 'prompt_persona'),
+    openRouter('Modelo das personas', [1000, 220], '={{ $json.cfg.modelo_cliente }}', null),
+    code('Ler personas', [1200, 0], js('ler-personas.js')),
+    pg('Salvar personas', [1400, 0],
+      "with ins as (\n  insert into sim_personas (rodada, combinacao, persona)\n  select $1::jsonb->>'rodada', $1::jsonb->'combinacao', $1::jsonb->'persona'\n  returning id\n)\nselect $1::jsonb || jsonb_build_object('persona_id', id) as s from ins",
+      '={{ JSON.stringify($json) }}'),
+    code('Preparar conversas', [1600, 0], 'return $input.all().map((i) => ({ json: i.json.s }));'),
+    {
+      id: id(), name: 'Conversar', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1800, 0],
+      onError: 'continueRegularOutput',
+      parameters: { source: 'database', workflowId: SIMULADOR_TURNO, mode: 'each', options: { waitForSubWorkflow: true } },
+    },
+    code('Conversas prontas', [2000, 0], js('conversas-prontas.js')),
+    pg('Fatos no banco', [2200, 0], "select $1::jsonb as s, fatos_sessao($1::jsonb->>'sessao') as fatos", '={{ JSON.stringify($json) }}'),
+    code('Montar avaliação', [2400, 0], js('montar-avaliacao.js')),
+    chain('IA avaliadora', [2600, 0], 'prompt_juiz'),
+    openRouter('Modelo avaliador', [2600, 220], '={{ $json.s.cfg.modelo_juiz }}', null),
+    code('Ler avaliação', [2800, 0], js('ler-avaliacao.js')),
+    pg('Salvar conversa', [3000, 0],
+      "insert into sim_conversas (rodada, persona_id, sessao, canal, transcricao, turnos, desfecho, fatos, notas, nota_geral, aprovado, problemas, sugestao, duracao_ms)\nselect j->>'rodada', (j->>'persona_id')::bigint, j->>'sessao', j->>'canal', j->'transcricao', (j->>'turnos')::int, j->>'desfecho',\n       j->'fatos', j->'notas', (j->>'nota_geral')::numeric, (j->>'aprovado')::boolean, j->'problemas', j->>'sugestao', (j->>'duracao_ms')::int\nfrom (select $1::jsonb as j) p\nreturning id, rodada",
+      '={{ JSON.stringify($json) }}'),
+    pg('Devolver estoque', [3200, 0], 'select limpar_testes() as limpeza', null, { executeOnce: true }),
+    pg('Resumo da rodada', [3400, 0], 'select * from sim_resumo where rodada = $1', "={{ $('Salvar conversa').first().json.rodada }}", { executeOnce: true }),
+  ];
+  const connections = {
+    'Iniciar simulação': main('Limpar testes anteriores'),
+    'Iniciar pela URL': main('Token do simulador'),
+    'Token do simulador': main('Token certo?'),
+    'Token certo?': main('Limpar testes anteriores'),
+    'Limpar testes anteriores': main('O que simular'),
+    'O que simular': main('Criar persona'),
+    'Modelo das personas': { ai_languageModel: [[conn('Criar persona', 'ai_languageModel')]] },
+    'Criar persona': main('Ler personas'),
+    'Ler personas': main('Salvar personas'),
+    'Salvar personas': main('Preparar conversas'),
+    'Preparar conversas': main('Conversar'),
+    'Conversar': main('Conversas prontas'),
+    'Conversas prontas': main('Fatos no banco'),
+    'Fatos no banco': main('Montar avaliação'),
+    'Montar avaliação': main('IA avaliadora'),
+    'Modelo avaliador': { ai_languageModel: [[conn('IA avaliadora', 'ai_languageModel')]] },
+    'IA avaliadora': main('Ler avaliação'),
+    'Ler avaliação': main('Salvar conversa'),
+    'Salvar conversa': main('Devolver estoque'),
+    'Devolver estoque': main('Resumo da rodada'),
+  };
+  save('6-simulador-clientes.json', {
+    name: 'Olden | 6. Simulador de clientes', nodes, connections, pinData: {},
+    settings: { executionOrder: 'v1' },
+  });
+
+  // ---------- 6b. Um turno da conversa (chama a si mesmo) ----------
+  seq = 600;
+  const nodesB = [
+    { id: id(), name: 'Entrada', type: 'n8n-nodes-base.executeWorkflowTrigger', typeVersion: 1.1, position: [0, 0], parameters: { inputSource: 'passthrough' } },
+    code('Montar fala do cliente', [200, 0], js('montar-fala.js')),
+    chain('Cliente simulado', [400, 0], 'prompt_cliente'),
+    openRouter('Modelo do cliente', [400, 220], '={{ $json.cfg.modelo_cliente }}', null),
+    code('Ler fala do cliente', [600, 0], js('ler-fala.js')),
+    se('Continua?', [800, 0], '$json.continua'),
+    {
+      id: id(), name: 'Lia responde', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1000, -100],
+      onError: 'continueRegularOutput',
+      parameters: { source: 'database', workflowId: NUCLEO, mode: 'once', options: { waitForSubWorkflow: true } },
+    },
+    code('Registrar turno', [1200, -100], js('registrar-turno.js')),
+    se('Mais um turno?', [1400, -100], '$json.turno < $json.cfg.max_turnos'),
+    {
+      id: id(), name: 'Próximo turno', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1600, -200],
+      parameters: { source: 'database', workflowId: SIMULADOR_TURNO, mode: 'once', options: { waitForSubWorkflow: true } },
+    },
+    code('Fim por limite', [1600, 0], "return [{ json: { ...$json, desfecho: 'limite_de_turnos' } }];"),
+    code('Fim da conversa', [1000, 150], js('fim-conversa.js')),
+  ];
+  const connectionsB = {
+    Entrada: main('Montar fala do cliente'),
+    'Montar fala do cliente': main('Cliente simulado'),
+    'Modelo do cliente': { ai_languageModel: [[conn('Cliente simulado', 'ai_languageModel')]] },
+    'Cliente simulado': main('Ler fala do cliente'),
+    'Ler fala do cliente': main('Continua?'),
+    'Continua?': main('Lia responde', 'Fim da conversa'),
+    'Lia responde': main('Registrar turno'),
+    'Registrar turno': main('Mais um turno?'),
+    'Mais um turno?': main('Próximo turno', 'Fim por limite'),
+  };
+  save('6b-simulador-turno.json', {
+    name: 'Olden | 6b. Simulador: um turno', nodes: nodesB, connections: connectionsB, pinData: {},
+    settings: { executionOrder: 'v1' },
   });
 }
