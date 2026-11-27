@@ -80,3 +80,47 @@ select c.rodada, c.id, c.nota_geral, c.desfecho, p.combinacao, p.persona->>'nome
        c.problemas, c.sugestao
 from sim_conversas c join sim_personas p on p.id = c.persona_id
 order by c.rodada desc, c.nota_geral asc nulls first;
+
+-- Conversas em paralelo: cada conversa devolve o próprio estoque ao terminar
+create or replace function limpar_sessao_teste(p_sessao text)
+returns jsonb
+language plpgsql
+set search_path = public
+as $$
+declare v_conversas int;
+begin
+  if p_sessao not like 'teste:%' then
+    raise exception 'só limpa sessões de teste (teste:...)';
+  end if;
+  create temp table _alvo_sessao on commit drop as
+    select c.id from conversas c join clientes cl on cl.id = c.cliente_id where cl.identificador = p_sessao;
+  select count(*) into v_conversas from _alvo_sessao;
+  update catalogo_variantes v set quantidade = v.quantidade + d.qtd
+    from (select sku, sum(quantidade) as qtd from pedidos where conversa_id in (select id from _alvo_sessao) group by sku) d
+   where v.sku = d.sku;
+  delete from n8n_chat_histories where session_id in (select id::text from _alvo_sessao);
+  delete from rastreio_avisos where pagamento_id in (select id from pagamentos where conversa_id in (select id from _alvo_sessao));
+  delete from pagamentos where conversa_id in (select id from _alvo_sessao);
+  delete from avaliacoes where conversa_id in (select id from _alvo_sessao);
+  delete from interesses where conversa_id in (select id from _alvo_sessao);
+  delete from pedidos    where conversa_id in (select id from _alvo_sessao);
+  delete from conversas  where id in (select id from _alvo_sessao);
+  delete from mensagens_saida where sessao = p_sessao;
+  return jsonb_build_object('conversas_apagadas', v_conversas);
+end $$;
+
+-- Resumo mostra também quantas personas a rodada tem (conversas < personas = ainda rodando)
+create or replace view sim_resumo as
+select c.rodada,
+       count(*)                                              as conversas,
+       count(*) filter (where c.aprovado)                    as aprovadas,
+       round(avg(c.nota_geral), 1)                           as nota_media,
+       round(avg(c.turnos), 1)                               as turnos_medios,
+       count(*) filter (where c.desfecho = 'comprou')        as compraram,
+       count(*) filter (where c.desfecho = 'desistiu')       as desistiram,
+       count(*) filter (where c.desfecho = 'humano')         as pediram_humano,
+       count(*) filter (where c.desfecho = 'limite_de_turnos') as sem_desfecho,
+       min(c.criado_em)                                      as inicio,
+       (select count(*) from sim_personas p where p.rodada = c.rodada) as personas
+from sim_conversas c
+group by c.rodada;

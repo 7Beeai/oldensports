@@ -1087,6 +1087,7 @@ return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'envi
 //    um turno por execução, chamando a si mesmo até o cliente encerrar.
 // =====================================================================
 const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b, escolhido no n8n depois de importar
+const SIMULADOR_CONVERSA = { __rl: true, mode: 'list', value: '' }; // workflow 6c, escolhido no n8n depois de importar
 {
   seq = 500;
   const js = (f) => fs.readFileSync(path.join(__dirname, 'simulador', f), 'utf8');
@@ -1115,7 +1116,6 @@ const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b,
     },
     pg('Token do simulador', [200, 220], "select valor from configuracao where chave = 'simulador_token'", null),
     se('Token certo?', [400, 220], "$('Iniciar pela URL').first().json.query.token === $json.valor"),
-    pg('Limpar testes anteriores', [600, 0], 'select limpar_testes() as limpeza', null, { executeOnce: true }),
     code('O que simular', [800, 0], js('o-que-simular.js')),
     chain('Criar persona', [1000, 0], 'prompt_persona'),
     openRouter('Modelo das personas', [1000, 220], '={{ $json.cfg.modelo_cliente }}', null),
@@ -1124,49 +1124,28 @@ const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b,
       "with ins as (\n  insert into sim_personas (rodada, combinacao, persona)\n  select $1::jsonb->>'rodada', $1::jsonb->'combinacao', $1::jsonb->'persona'\n  returning id\n)\nselect $1::jsonb || jsonb_build_object('persona_id', id) as s from ins",
       '={{ JSON.stringify($json) }}'),
     code('Preparar conversas', [1600, 0], 'return $input.all().map((i) => ({ json: i.json.s }));'),
+    // Dispara as conversas em paralelo: cada uma roda no 6c (conversa, avaliação, gravação, limpeza)
     {
-      id: id(), name: 'Conversar', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1800, 0],
-      onError: 'continueRegularOutput',
-      parameters: { source: 'database', workflowId: SIMULADOR_TURNO, mode: 'each', options: { waitForSubWorkflow: true } },
+      id: id(), name: 'Rodar conversas', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1800, 0],
+      parameters: { source: 'database', workflowId: SIMULADOR_CONVERSA, mode: 'each', options: { waitForSubWorkflow: false } },
     },
-    code('Conversas prontas', [2000, 0], js('conversas-prontas.js')),
-    pg('Fatos no banco', [2200, 0], "select $1::jsonb as s, fatos_sessao($1::jsonb->>'sessao') as fatos,\n       (select string_agg('- ' || tema || ': ' || texto, E'\\n' order by ordem) from politicas_loja) as politicas", '={{ JSON.stringify($json) }}'),
-    code('Montar avaliação', [2400, 0], js('montar-avaliacao.js')),
-    chain('IA avaliadora', [2600, 0], 'prompt_juiz'),
-    openRouter('Modelo avaliador', [2600, 220], '={{ $json.s.cfg.modelo_juiz }}', null),
-    code('Ler avaliação', [2800, 0], js('ler-avaliacao.js')),
-    pg('Salvar conversa', [3000, 0],
-      "insert into sim_conversas (rodada, persona_id, sessao, canal, transcricao, turnos, desfecho, fatos, notas, nota_geral, aprovado, problemas, sugestao, duracao_ms)\nselect j->>'rodada', (j->>'persona_id')::bigint, j->>'sessao', j->>'canal', j->'transcricao', (j->>'turnos')::int, j->>'desfecho',\n       j->'fatos', j->'notas', (j->>'nota_geral')::numeric, (j->>'aprovado')::boolean, j->'problemas', j->>'sugestao', (j->>'duracao_ms')::int\nfrom (select $1::jsonb as j) p\nreturning id, rodada",
-      '={{ JSON.stringify($json) }}'),
-    pg('Devolver estoque', [3200, 0], 'select limpar_testes() as limpeza', null, { executeOnce: true }),
-    pg('Resumo da rodada', [3400, 0], 'select * from sim_resumo where rodada = $1', "={{ $('Salvar conversa').first().json.rodada }}", { executeOnce: true }),
   ];
   const connections = {
-    'Iniciar simulação': main('Limpar testes anteriores'),
+    'Iniciar simulação': main('O que simular'),
     'Iniciar pela URL': main('Token do simulador'),
     'Token do simulador': main('Token certo?'),
-    'Token certo?': main('Limpar testes anteriores'),
-    'Limpar testes anteriores': main('O que simular'),
+    'Token certo?': main('O que simular'),
     'O que simular': main('Criar persona'),
     'Modelo das personas': { ai_languageModel: [[conn('Criar persona', 'ai_languageModel')]] },
     'Criar persona': main('Ler personas'),
     'Ler personas': main('Salvar personas'),
     'Salvar personas': main('Preparar conversas'),
-    'Preparar conversas': main('Conversar'),
-    'Conversar': main('Conversas prontas'),
-    'Conversas prontas': main('Fatos no banco'),
-    'Fatos no banco': main('Montar avaliação'),
-    'Montar avaliação': main('IA avaliadora'),
-    'Modelo avaliador': { ai_languageModel: [[conn('IA avaliadora', 'ai_languageModel')]] },
-    'IA avaliadora': main('Ler avaliação'),
-    'Ler avaliação': main('Salvar conversa'),
-    'Salvar conversa': main('Devolver estoque'),
-    'Devolver estoque': main('Resumo da rodada'),
+    'Preparar conversas': main('Rodar conversas'),
   };
   save('6-simulador-clientes.json', {
     name: 'Olden | 6. Simulador de clientes', nodes, connections, pinData: {},
     // O n8n encerra execuções depois de 5 minutos por padrão; uma rodada leva bem mais
-    settings: { executionOrder: 'v1', executionTimeout: 3600 },
+    settings: { executionOrder: 'v1', executionTimeout: 600 },
   });
 
   // ---------- 6b. Um turno da conversa (chama a si mesmo) ----------
@@ -1205,6 +1184,42 @@ const SIMULADOR_TURNO = { __rl: true, mode: 'list', value: '' }; // workflow 6b,
   };
   save('6b-simulador-turno.json', {
     name: 'Olden | 6b. Simulador: um turno', nodes: nodesB, connections: connectionsB, pinData: {},
+    settings: { executionOrder: 'v1', executionTimeout: 1800 },
+  });
+
+  // ---------- 6c. Uma conversa completa: conversa, avaliação, gravação e limpeza ----------
+  seq = 700;
+  const nodesC = [
+    { id: id(), name: 'Entrada', type: 'n8n-nodes-base.executeWorkflowTrigger', typeVersion: 1.1, position: [0, 0], parameters: { inputSource: 'passthrough' } },
+    {
+      id: id(), name: 'Conversar', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [200, 0],
+      onError: 'continueRegularOutput',
+      parameters: { source: 'database', workflowId: SIMULADOR_TURNO, mode: 'once', options: { waitForSubWorkflow: true } },
+    },
+    code('Conversa pronta', [400, 0], js('conversa-pronta.js')),
+    pg('Fatos no banco', [600, 0], "select $1::jsonb as s, fatos_sessao($1::jsonb->>'sessao') as fatos,\n       (select string_agg('- ' || tema || ': ' || texto, E'\\n' order by ordem) from politicas_loja) as politicas", '={{ JSON.stringify($json) }}'),
+    code('Montar avaliação', [800, 0], js('montar-avaliacao.js')),
+    chain('IA avaliadora', [1000, 0], 'prompt_juiz'),
+    openRouter('Modelo avaliador', [1000, 220], '={{ $json.s.cfg.modelo_juiz }}', null),
+    code('Ler avaliação', [1200, 0], js('ler-avaliacao.js')),
+    pg('Salvar conversa', [1400, 0],
+      "insert into sim_conversas (rodada, persona_id, sessao, canal, transcricao, turnos, desfecho, fatos, notas, nota_geral, aprovado, problemas, sugestao, duracao_ms)\nselect j->>'rodada', (j->>'persona_id')::bigint, j->>'sessao', j->>'canal', j->'transcricao', (j->>'turnos')::int, j->>'desfecho',\n       j->'fatos', j->'notas', (j->>'nota_geral')::numeric, (j->>'aprovado')::boolean, j->'problemas', j->>'sugestao', (j->>'duracao_ms')::int\nfrom (select $1::jsonb as j) p\nreturning id, rodada, sessao",
+      '={{ JSON.stringify($json) }}'),
+    pg('Devolver estoque desta conversa', [1600, 0], 'select limpar_sessao_teste($1) as limpeza', '={{ $json.sessao }}'),
+  ];
+  const connectionsC = {
+    Entrada: main('Conversar'),
+    Conversar: main('Conversa pronta'),
+    'Conversa pronta': main('Fatos no banco'),
+    'Fatos no banco': main('Montar avaliação'),
+    'Montar avaliação': main('IA avaliadora'),
+    'Modelo avaliador': { ai_languageModel: [[conn('IA avaliadora', 'ai_languageModel')]] },
+    'IA avaliadora': main('Ler avaliação'),
+    'Ler avaliação': main('Salvar conversa'),
+    'Salvar conversa': main('Devolver estoque desta conversa'),
+  };
+  save('6c-simulador-conversa.json', {
+    name: 'Olden | 6c. Simulador: uma conversa completa', nodes: nodesC, connections: connectionsC, pinData: {},
     settings: { executionOrder: 'v1', executionTimeout: 1800 },
   });
 }
