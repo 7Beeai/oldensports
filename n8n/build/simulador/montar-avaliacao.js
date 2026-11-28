@@ -18,6 +18,8 @@ REGRAS QUE A LIA DEVE SEGUIR
 - Preços: só existem dois valores, o do cartão (cheio) e o do Pix (promocional, só no Pix); usar o valor do Pix no cartão (ou o contrário) é informação errada. Não oferece o que a loja não tem (reserva, cupom, frete grátis, prazo) e não inventa explicação para um erro.
 - Formatos: produtos aparecem como linhas "•" (cartões) e botões [entre colchetes]. "[manda uma selfie]", "[manda um áudio]" e "[paga o link de pagamento]" são ações do cliente. Depois de "[paga o link de pagamento]", a Lia avisando que o pagamento foi aprovado e mandando o rastreio é o esperado.
 
+DATA E HORA DA CONVERSA (Brasília): ${new Date(s.inicio || Date.now()).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. A Lia sabe a data e a hora; usá-las (ex.: "a equipe volta amanhã às 9h") não é inventar.
+
 O CLIENTE SIMULADO
 Canal: ${s.canal === 'whatsapp' ? 'WhatsApp' : 'página de chat'} | Perfil: ${c.perfil} | Intenção: ${c.intencao} | Produto: ${c.produto} | Time: ${c.time} | Desafio: ${c.desafio}
 Desfecho declarado pelo cliente: ${s.desfecho}

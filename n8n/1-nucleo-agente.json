@@ -347,9 +347,9 @@
         "descriptionType": "manual",
         "toolDescription": "Passa um caso de pós-venda para a equipe humana e avisa a equipe na hora. Use SÓ quando: o cliente pedir para falar com uma pessoa; troca ou devolução de compra já feita; atraso ou problema com pedido já feito; problema de pagamento (ex.: diz que pagou e não aparece); reclamação. NÃO use para dúvidas de pré-venda (frete, prazo, troca, CNPJ, originalidade, cupom): responda com as Informações da loja. Se a equipe já foi chamada nesta conversa (veja Situação atual), chamar de novo só acrescenta informação nova ao mesmo caso.",
         "operation": "executeQuery",
-        "query": "select chamar_equipe(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'motivo', $1::jsonb->>'resumo', nullif($1::jsonb->>'referencia', '')) as resultado",
+        "query": "select chamar_equipe(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'motivo', $1::jsonb->>'resumo', nullif($1::jsonb->>'referencia', ''), $1::jsonb->>'mensagem') as resultado",
         "options": {
-          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, motivo: $fromAI('motivo', 'Um destes, e só estes: troca, devolucao, atraso, pedido_antigo, pagamento, reclamacao, pediu_humano', 'string'), resumo: $fromAI('resumo', 'Resumo para a equipe em 1 a 3 frases: o que o cliente quer e o que ele já informou (produto, tamanho, datas)', 'string'), referencia: $fromAI('referencia', 'Número do pedido, e-mail da compra ou outro dado que o cliente passou para localizar a compra; vazio se não houver', 'string') }) }}"
+          "queryReplacement": "={{ JSON.stringify({ conversa_id: $json.conversa_id, mensagem: $json.mensagem, motivo: $fromAI('motivo', 'Um destes, e só estes: troca, devolucao, atraso, pedido_antigo, pagamento, reclamacao, pediu_humano', 'string'), resumo: $fromAI('resumo', 'Resumo para a equipe em 1 a 3 frases: o que o cliente quer e o que ele já informou (produto, tamanho, datas)', 'string'), referencia: $fromAI('referencia', 'Número do pedido, e-mail da compra ou outro dado que o cliente passou para localizar a compra; vazio se não houver', 'string') }) }}"
         }
       }
     },
