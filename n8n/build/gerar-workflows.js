@@ -81,6 +81,17 @@ const VALIDAR_BLOCOS = `// Confere os limites do WhatsApp e se cada produto exis
 const lidos = $('Ler blocos').first().json;
 const prods = $json.produtos || {};
 const problemas = [...lidos.problemas];
+// Sem pedido registrado não existe "reserva": frases que prometem separar ou reservar a peça saem da resposta
+const ctx = $('Contexto do atendimento').first().json;
+const semPedido = /^Nenhum pedido/.test(String(ctx.situacao_pedido || ''));
+const RESERVA = /(reserv\\w*|separad[oa]s? (pra|para|no seu nome|até)|separ(o|ar|amos) (a|o|ela|ele|pra|para|no)\\b|deix\\w* .{0,25}separad\\w*|guard(o|ar|amos) .{0,20}(pra|para) (você|vc))/i;
+const semReserva = (t) => {
+  t = String(t ?? '');
+  if (!semPedido || !RESERVA.test(t)) return t;
+  problemas.push('reserva oferecida sem pedido: frase removida');
+  const frases = t.split(/(?<=[.!?])\\s+/).filter((f) => !RESERVA.test(f));
+  return frases.join(' ').trim();
+};
 const corta = (s, n) => { s = String(s ?? '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const filtra = (lista, onde) => {
   const bons = [];
@@ -95,8 +106,9 @@ for (const b of lidos.blocos) {
   const tipo = b && b.tipo;
   if (tipo === 'texto') {
     if ((b.botoes || []).length > 3) problemas.push('texto: mais de 3 botões');
-    const botoes = (b.botoes || []).slice(0, 3).map((x, i) => ({ id: corta(x.id || ('b' + i), 200), titulo: corta(x.titulo, 20) })).filter((x) => x.titulo);
-    if (b.texto) saida.push({ tipo, texto: String(b.texto), botoes });
+    const botoes = (b.botoes || []).slice(0, 3).map((x, i) => ({ id: corta(x.id || ('b' + i), 200), titulo: corta(x.titulo, 20) })).filter((x) => x.titulo && !(semPedido && RESERVA.test(x.titulo)));
+    const texto = semReserva(b.texto) || (botoes.length ? 'Quer fechar o pedido?' : '');
+    if (texto) saida.push({ tipo, texto, botoes });
   } else if (tipo === 'menu') {
     if ((b.opcoes || []).length > 10) problemas.push('menu: mais de 10 opções');
     const opcoes = (b.opcoes || []).slice(0, 10).map((o, i) => ({ id: corta(o.id || ('op' + i), 200), titulo: corta(o.titulo, 24), descricao: o.descricao ? corta(o.descricao, 72) : '' })).filter((o) => o.titulo);
@@ -267,6 +279,10 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
       'Traz todos os detalhes de uma peça: descrição completa, material, gola, medidas, tamanhos com disponibilidade e códigos, preço, Pix, fotos e vídeo. Use quando o cliente perguntar algo que o resumo da busca não responde.',
       "select detalhes_produto($1::jsonb->>'sku') as detalhes",
       `sku: $fromAI('sku', 'Código do modelo (OLD-P...) ou do tamanho que veio da busca', 'string')`),
+    tool('prazo_entrega', [2220, 260],
+      'Calcula a janela de entrega em DATAS para o estado (UF) do cliente, se o pagamento for aprovado hoje (postagem em até 2 dias úteis + prazo da região). Use sempre que o cliente perguntar quando chega ou se chega até uma data. Não faça conta de calendário por conta própria.',
+      "select prazo_entrega($1::jsonb->>'uf') as resultado",
+      `uf: $fromAI('uf', 'Sigla do estado do cliente (ex.: MG, SP, PB). Se ele disse só a cidade, use a sigla do estado dessa cidade', 'string')`),
     tool('chamar_equipe', [2060, 260],
       'Passa um caso de pós-venda para a equipe humana e avisa a equipe na hora. Use SÓ quando: o cliente pedir para falar com uma pessoa; troca ou devolução de compra já feita; atraso ou problema com pedido já feito; problema de pagamento (ex.: diz que pagou e não aparece); reclamação. NÃO use para dúvidas de pré-venda (frete, prazo, troca, CNPJ, originalidade, cupom): responda com as Informações da loja. Se a equipe já foi chamada nesta conversa (veja Situação atual), chamar de novo só acrescenta informação nova ao mesmo caso.',
       "select chamar_equipe(($1::jsonb->>'conversa_id')::uuid, $1::jsonb->>'motivo', $1::jsonb->>'resumo', nullif($1::jsonb->>'referencia', ''), $1::jsonb->>'mensagem') as resultado",
@@ -292,6 +308,7 @@ return [{ json: { output: partes.join('\\n\\n'), blocos: saida, validacao: probl
     recomendar_tamanho: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     detalhes_produto: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     chamar_equipe: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
+    prazo_entrega: { ai_tool: [[conn('Agente Olden', 'ai_tool')]] },
     'Agente Olden': main('Ler blocos'),
     'Ler blocos': main('Conferir produtos'),
     'Conferir produtos': main('Validar blocos'),
