@@ -2,6 +2,7 @@
 
 Agente de atendimento da Olden Sports (n8n + Supabase + Claude Haiku 5.5 via OpenRouter).
 
+- **Estado do projeto e passagem para o Victor:** [docs/projeto-lia-olden.md](docs/projeto-lia-olden.md)
 - **Contexto completo do projeto:** [docs/contexto-do-projeto.md](docs/contexto-do-projeto.md)
 - **WhatsApp (contas da Meta e virada do teste):** [docs/whatsapp.md](docs/whatsapp.md)
 - **Guia atual:** [docs/ambiente-de-testes.md](docs/ambiente-de-testes.md): chat de demonstração, bateria de testes e variáveis do agente
