@@ -128,8 +128,14 @@ for (const b of lidos.blocos) {
     if (s.length === 2) saida.push({ tipo, texto: String(b.texto || ''), skus: s, produtos: s.map((x) => prods[x]) });
     else if (s.length === 1) saida.push({ tipo: 'produto', sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
   } else if (tipo === 'provador') {
+    // Só peças que existem, com estoque, de vestir e de adulto
     const s = filtra([b.sku], tipo);
-    if (s.length) saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: prods[s[0]] });
+    const p = s.length ? prods[s[0]] : null;
+    if (p && ['camisas', 'roupas', 'bones'].includes(p.departamento) && p.faixa_etaria === 'adulto') saida.push({ tipo, sku: s[0], texto: String(b.texto || ''), produto: p });
+    else {
+      if (p) problemas.push('provador: ' + p.nome + ' não é peça de vestir de adulto');
+      saida.push({ tipo: 'texto', botoes: [], texto: (b.texto ? String(b.texto) + '\\n\\n' : '') + 'O provador funciona com camisas, roupas e bonés de adulto da loja. Me fala qual dessas peças você quer ver em você 😊' });
+    }
   } else if (tipo === 'catalogo') {
     saida.push({ tipo, corpo: String(b.corpo || 'Veja o catálogo completo') });
   } else if (tipo === 'pagamento') {
@@ -961,9 +967,23 @@ return $input.all().map((it, i) => ({ json: {
     meta('Baixar selfie', [3000, -320], 'GET', '={{ $json.url }}', {
       node: { onError: 'continueRegularOutput' }, options: { response: { response: { responseFormat: 'file' } } },
     }),
-    code('Pedido ao provador', [3200, -400], js('pedido-provador.js')),
+    // Confere a selfie antes de gerar: pessoa real, adulta, sozinha, de frente, com boa luz
+    code('Pedido de conferência', [3150, -400], js('pedido-conferencia.js')),
     {
-      id: id(), name: 'Gerar prévia', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [3400, -400],
+      id: id(), name: 'Conferir selfie', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [3300, -400],
+      onError: 'continueRegularOutput',
+      parameters: {
+        method: 'POST', url: 'https://openrouter.ai/api/v1/chat/completions',
+        authentication: 'predefinedCredentialType', nodeCredentialType: 'openRouterApi',
+        sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.corpo) }}',
+        options: { timeout: 60000 },
+      },
+    },
+    code('Ler conferência', [3450, -400], js('ler-conferencia.js')),
+    se('Selfie aprovada?', [3600, -400], '$json.aprovada'),
+    code('Pedido ao provador', [3750, -400], js('pedido-provador.js')),
+    {
+      id: id(), name: 'Gerar prévia', type: 'n8n-nodes-base.httpRequest', typeVersion: 4.2, position: [3900, -400],
       onError: 'continueRegularOutput',
       parameters: {
         method: 'POST', url: 'https://openrouter.ai/api/v1/chat/completions',
@@ -972,10 +992,10 @@ return $input.all().map((it, i) => ({ json: {
         options: { timeout: 120000 },
       },
     },
-    code('Ler prévia', [3600, -400], js('ler-previa.js')),
-    pg('Apagar referência da selfie', [3800, -560], 'select apagar_foto_cliente($1::bigint)', "={{ $('Última selfie').first().json.registro_id || 0 }}", { executeOnce: true }),
-    se('Subir prévia?', [3800, -400], "$json.ok && $('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
-    meta('Subir prévia', [4000, -480], 'POST', `={{ ${graph} + ${phone} + '/media' }}`, {
+    code('Ler prévia', [4050, -400], js('ler-previa.js')),
+    pg('Apagar referência da selfie', [3300, -600], 'select apagar_foto_cliente($1::bigint)', "={{ $('Última selfie').first().json.registro_id || 0 }}", { executeOnce: true }),
+    se('Subir prévia?', [4200, -400], "$json.ok && $('Configuração do WhatsApp').first().json.cfg.whatsapp_modo === 'real'"),
+    meta('Subir prévia', [4350, -480], 'POST', `={{ ${graph} + ${phone} + '/media' }}`, {
       node: { onError: 'continueRegularOutput' },
       params: {
         sendBody: true, contentType: 'multipart-form-data',
@@ -986,7 +1006,7 @@ return $input.all().map((it, i) => ({ json: {
         ] },
       },
     }),
-    code('Juntar prévia', [4200, -400], js('juntar-previa.js')),
+    code('Juntar prévia', [4500, -400], js('juntar-previa.js')),
 
     // --- Envio: blocos da Lia -> mensagens do WhatsApp ---
     code('Montar envios', [4400, 0], js('montar-envios.js')),
@@ -1056,12 +1076,16 @@ return { json: { ...env, wamid: ok ? r.messages[0].id : null, status: ok ? 'envi
     'Tem selfie?': main('Selfie de teste?', 'Sem selfie'),
     'Sem selfie': main('Juntar prévia'),
     'Selfie de teste?': main('Baixar selfie de teste', 'Endereço da selfie'),
-    'Baixar selfie de teste': main('Pedido ao provador'),
+    'Baixar selfie de teste': main('Pedido de conferência'),
     'Endereço da selfie': main('Baixar selfie'),
-    'Baixar selfie': main('Pedido ao provador'),
+    'Baixar selfie': main('Pedido de conferência'),
+    'Pedido de conferência': { main: [[conn('Conferir selfie'), conn('Apagar referência da selfie')]] },
+    'Conferir selfie': main('Ler conferência'),
+    'Ler conferência': main('Selfie aprovada?'),
+    'Selfie aprovada?': main('Pedido ao provador', 'Juntar prévia'),
     'Pedido ao provador': main('Gerar prévia'),
     'Gerar prévia': main('Ler prévia'),
-    'Ler prévia': { main: [[conn('Apagar referência da selfie'), conn('Subir prévia?')]] },
+    'Ler prévia': main('Subir prévia?'),
     'Subir prévia?': main('Subir prévia', 'Juntar prévia'),
     'Subir prévia': main('Juntar prévia'),
     'Juntar prévia': main('Montar envios'),
@@ -1124,10 +1148,16 @@ const SIMULADOR_CONVERSA = { __rl: true, mode: 'list', value: '' }; // workflow 
       "with ins as (\n  insert into sim_personas (rodada, combinacao, persona)\n  select $1::jsonb->>'rodada', $1::jsonb->'combinacao', $1::jsonb->'persona'\n  returning id\n)\nselect $1::jsonb || jsonb_build_object('persona_id', id) as s from ins",
       '={{ JSON.stringify($json) }}'),
     code('Preparar conversas', [1600, 0], 'return $input.all().map((i) => ({ json: i.json.s }));'),
-    // Dispara as conversas em paralelo: cada uma roda no 6c (conversa, avaliação, gravação, limpeza)
+    // Dispara uma conversa a cada N segundos (cfg.intervalo_s): várias rodam ao mesmo tempo no 6c,
+    // sem estourar o limite de conexões do banco (Supabase: 15 no modo sessão)
+    { id: id(), name: 'Uma por vez', type: 'n8n-nodes-base.splitInBatches', typeVersion: 3, position: [1800, 0], parameters: { options: {} } },
     {
-      id: id(), name: 'Rodar conversas', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [1800, 0],
+      id: id(), name: 'Rodar conversas', type: 'n8n-nodes-base.executeWorkflow', typeVersion: 1.2, position: [2000, 100],
       parameters: { source: 'database', workflowId: SIMULADOR_CONVERSA, mode: 'each', options: { waitForSubWorkflow: false } },
+    },
+    {
+      id: id(), name: 'Espaçar', type: 'n8n-nodes-base.wait', typeVersion: 1.1, position: [2200, 100],
+      parameters: { amount: "={{ $('Uma por vez').first().json.cfg.intervalo_s || 30 }}", unit: 'seconds' },
     },
   ];
   const connections = {
@@ -1140,12 +1170,15 @@ const SIMULADOR_CONVERSA = { __rl: true, mode: 'list', value: '' }; // workflow 
     'Criar persona': main('Ler personas'),
     'Ler personas': main('Salvar personas'),
     'Salvar personas': main('Preparar conversas'),
-    'Preparar conversas': main('Rodar conversas'),
+    'Preparar conversas': main('Uma por vez'),
+    'Uma por vez': main([], 'Rodar conversas'),
+    'Rodar conversas': main('Espaçar'),
+    'Espaçar': main('Uma por vez'),
   };
   save('6-simulador-clientes.json', {
     name: 'Olden | 6. Simulador de clientes', nodes, connections, pinData: {},
     // O n8n encerra execuções depois de 5 minutos por padrão; uma rodada leva bem mais
-    settings: { executionOrder: 'v1', executionTimeout: 600 },
+    settings: { executionOrder: 'v1', executionTimeout: 3600 },
   });
 
   // ---------- 6b. Um turno da conversa (chama a si mesmo) ----------

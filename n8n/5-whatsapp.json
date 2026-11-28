@@ -594,11 +594,94 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000427",
+      "name": "Pedido de conferência",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3150,
+        -400
+      ],
+      "parameters": {
+        "jsCode": "// Antes de gerar a prévia, um modelo de visão confere se a selfie serve.\n// A imagem segue junto (binary) para o provador, se a foto for aprovada.\nconst cfg = $('Configuração do WhatsApp').first().json.cfg;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) return [{ json: { corpo: null } }];\nconst buf = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst mime = /^image\\//.test(bin.mimeType || '') ? bin.mimeType : 'image/jpeg';\nconst instrucao = `Você confere fotos enviadas por clientes para um provador virtual de roupas. Analise a imagem e responda SÓ com um JSON, sem texto fora dele:\n{\"foto_de_pessoa_real\": true, \"quantas_pessoas\": 1, \"parece_menor_de_idade\": false, \"rosto_visivel\": true, \"tronco_visivel_de_frente\": true, \"qualidade\": \"boa\", \"conteudo_improprio\": false, \"print_desenho_ou_montagem\": false, \"observacao\": \"uma frase curta\"}\nRegras:\n- foto_de_pessoa_real: false se não houver pessoa (só objeto, roupa, paisagem, animal) ou se for boneco/manequim.\n- tronco_visivel_de_frente: true só se aparecem de frente os ombros e o peito até perto da cintura (onde a camisa fica). Falso se a foto mostra só rosto, só pernas, só pés, costas ou um detalhe do corpo.\n- qualidade: \"boa\", \"escura\", \"borrada\", \"muito_pequena\" ou \"cortada\" (a pessoa sai cortada no meio do tronco).\n- parece_menor_de_idade: true se a pessoa aparenta ter menos de 18 anos. Na dúvida, true.\n- conteudo_improprio: nudez, roupa íntima, violência, gesto ofensivo ou algo que não deveria ser editado.\n- print_desenho_ou_montagem: print de tela, desenho, ilustração, meme ou foto de outra foto.`;\nreturn [{\n  json: { corpo: {\n    model: cfg.provador_modelo_conferencia || 'anthropic/claude-haiku-5.5',\n    max_tokens: 2000,\n    reasoning: { effort: 'low' },\n    messages: [{ role: 'user', content: [\n      { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + buf.toString('base64') } },\n      { type: 'text', text: instrucao },\n    ] }],\n  } },\n  binary: $input.first().binary,\n}];\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000428",
+      "name": "Conferir selfie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        -400
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.corpo) }}",
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000429",
+      "name": "Ler conferência",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3450,
+        -400
+      ],
+      "parameters": {
+        "jsCode": "// Decide se a selfie serve para a prévia. Se não servir, explica ao cliente o porquê.\nconst pedido = $('Pedido de conferência').first();\nconst r = $json || {};\nconst texto = String((((r.choices || [])[0] || {}).message || {}).content || '');\nlet c = null;\ntry { c = JSON.parse(texto.slice(texto.indexOf('{'), texto.lastIndexOf('}') + 1)); } catch (e) { c = null; }\nconst recusa = (motivo, mensagem) => [{ json: { aprovada: false, ok: false, motivo, mensagem, conferencia: c } }];\nif (!pedido.json.corpo) return recusa('sem_foto', 'Não consegui abrir a sua foto 😕 Me manda de novo, como foto normal (não como documento)?');\nif (!c) return recusa('conferencia_falhou', 'Tive um probleminha pra analisar a foto agora 😕 Pode me mandar de novo daqui a pouco?');\nif (c.conteudo_improprio) return recusa('improprio', 'Essa foto eu não consigo usar pra prévia. Me manda uma selfie de frente, vestida, da cintura pra cima?');\nif (!c.foto_de_pessoa_real) return recusa('sem_pessoa', 'Não consegui ver uma pessoa nessa foto 😅 Me manda uma selfie sua, de frente, da cintura pra cima?');\nif (c.print_desenho_ou_montagem) return recusa('print_ou_desenho', 'Parece um print, anúncio ou desenho 😅 Pra prévia eu preciso de uma foto sua de verdade, de frente, da cintura pra cima.');\nif (Number(c.quantas_pessoas) > 1) return recusa('varias_pessoas', 'Nessa foto aparece mais de uma pessoa. Me manda uma só sua, de frente, da cintura pra cima?');\nif (c.parece_menor_de_idade) return recusa('menor', 'O provador funciona só com fotos de adultos, então não consigo gerar a prévia com essa foto. Se a peça for pra você, me manda uma selfie sua 😊');\nif (c.qualidade === 'escura') return recusa('escura', 'A foto ficou um pouco escura 😕 Tira de novo num lugar com mais luz, de frente e da cintura pra cima?');\nif (c.qualidade === 'borrada') return recusa('borrada', 'A foto ficou tremida 😕 Tenta de novo com o celular parado, de frente e da cintura pra cima?');\nif (c.qualidade === 'muito_pequena') return recusa('pequena', 'A foto veio muito pequena pra eu vestir a peça direitinho. Me manda de novo, com você mais perto da câmera?');\nif (!c.rosto_visivel || !c.tronco_visivel_de_frente || c.qualidade === 'cortada') {\n  return recusa('enquadramento', 'Pra vestir a peça direitinho, preciso ver você de frente, do rosto até a cintura 📸 Me manda outra assim?');\n}\nreturn [{ json: { aprovada: true, conferencia: c }, binary: pedido.binary }];\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000430",
+      "name": "Selfie aprovada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Selfie aprovada?",
+              "leftValue": "={{ $json.aprovada }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000431",
       "name": "Pedido ao provador",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3200,
+        3750,
         -400
       ],
       "parameters": {
@@ -606,12 +689,12 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000428",
+      "id": "b2000000-0000-4000-8000-000000000432",
       "name": "Gerar prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3400,
+        3900,
         -400
       ],
       "onError": "continueRegularOutput",
@@ -629,12 +712,12 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000429",
+      "id": "b2000000-0000-4000-8000-000000000433",
       "name": "Ler prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3600,
+        4050,
         -400
       ],
       "parameters": {
@@ -642,13 +725,13 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000430",
+      "id": "b2000000-0000-4000-8000-000000000434",
       "name": "Apagar referência da selfie",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        3800,
-        -560
+        3300,
+        -600
       ],
       "parameters": {
         "operation": "executeQuery",
@@ -660,12 +743,12 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000431",
+      "id": "b2000000-0000-4000-8000-000000000435",
       "name": "Subir prévia?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3800,
+        4200,
         -400
       ],
       "parameters": {
@@ -694,12 +777,12 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000432",
+      "id": "b2000000-0000-4000-8000-000000000436",
       "name": "Subir prévia",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4000,
+        4350,
         -480
       ],
       "onError": "continueRegularOutput",
@@ -735,20 +818,20 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000433",
+      "id": "b2000000-0000-4000-8000-000000000437",
       "name": "Juntar prévia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4200,
+        4500,
         -400
       ],
       "parameters": {
-        "jsCode": "// Troca o bloco \"provador\" pela prévia pronta (ou pelo aviso de que não deu certo).\nconst cfg = $('Configuração do WhatsApp').first().json.cfg;\nconst base = $('Tem provador?').first(0).json;\nconst lp = $('Ler prévia').isExecuted ? $('Ler prévia').first().json : $input.first().json;\nconst real = cfg.whatsapp_modo === 'real';\nconst mediaId = $('Subir prévia').isExecuted ? (($('Subir prévia').first().json || {}).id || null) : null;\nconst ok = !!lp.ok && (!real || !!mediaId);\nconst blocos = [];\nfor (const b of base.blocos || []) {\n  if (b.tipo !== 'provador') { blocos.push(b); continue; }\n  if (b.texto) blocos.push({ tipo: 'texto', texto: b.texto, botoes: [] });\n  blocos.push({ tipo: 'previa', ok, media_id: mediaId, produto: b.produto, bytes: lp.bytes || 0,\n    motivo: ok ? null : (lp.motivo || 'falha ao subir a imagem') });\n}\nreturn [{ json: { ...base, blocos } }];\n"
+        "jsCode": "// Troca o bloco \"provador\" pela prévia pronta (ou pelo aviso de que não deu certo).\nconst cfg = $('Configuração do WhatsApp').first().json.cfg;\nconst base = $('Tem provador?').first(0).json;\nconst lp = $('Ler prévia').isExecuted ? $('Ler prévia').first().json : $input.first().json;\nconst real = cfg.whatsapp_modo === 'real';\nconst mediaId = $('Subir prévia').isExecuted ? (($('Subir prévia').first().json || {}).id || null) : null;\nconst ok = !!lp.ok && (!real || !!mediaId);\nconst blocos = [];\nfor (const b of base.blocos || []) {\n  if (b.tipo !== 'provador') { blocos.push(b); continue; }\n  if (b.texto) blocos.push({ tipo: 'texto', texto: b.texto, botoes: [] });\n  blocos.push({ tipo: 'previa', ok, media_id: mediaId, produto: b.produto, bytes: lp.bytes || 0,\n    motivo: ok ? null : (lp.motivo || 'falha ao subir a imagem'), mensagem: ok ? null : (lp.mensagem || null) });\n}\nreturn [{ json: { ...base, blocos } }];\n"
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000434",
+      "id": "b2000000-0000-4000-8000-000000000438",
       "name": "Montar envios",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -757,11 +840,11 @@
         0
       ],
       "parameters": {
-        "jsCode": "// Converte os blocos da Lia em mensagens da API oficial do WhatsApp (Cloud API).\n// Com catálogo da Meta (whatsapp_catalogo_id): fichas e listas nativas de produto.\n// Sem catálogo: foto + preço + botões de resposta, que funcionam em qualquer conta.\nconst corta = (s, n) => { s = String(s ?? '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };\nconst brl = (v) => (v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));\n// Negrito do WhatsApp é *assim*; link em markdown vira \"texto: link\"\nconst md = (s) => String(s ?? '')\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '*$1*')\n  .replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '$1: $2');\nconst idAcao = (acao, p) => corta(acao + '|' + p.item_group_id + '|' + p.nome, 256);\n// Primeiro contato: só o produto (nome e tamanhos). Com o preço: cartão primeiro e o Pix como condição especial.\nconst ficha = (p, comPreco) => {\n  const tamanhos = (p.tamanhos || []).length ? '\\nTamanhos: ' + p.tamanhos.join(', ') : '';\n  if (!comPreco) return '*' + p.nome + '*' + tamanhos;\n  const promo = p.preco_original && p.preco_original > p.preco ? '~' + brl(p.preco_original) + '~ ' : '';\n  return '*' + p.nome + '*\\n' + promo + brl(p.preco) + ' no cartão' + (p.parcelamento ? ' (' + p.parcelamento + ')' : '')\n    + (p.preco_pix && p.preco_pix < p.preco ? '\\n✨ Condição especial no Pix: ' + brl(p.preco_pix) : '')\n    + tamanhos;\n};\nconst artigo = (nome) => (/^\\S*a\\b/i.test(String(nome || '').trim()) ? 'a' : 'o');\nconst linkVideo = (u) => String(u || '').replace('youtube.com/embed/', 'youtube.com/watch?v=');\nconst rotulos = { material: 'Material', gola: 'Gola', escudo: 'Escudo', manga: 'Manga' };\n\nconst saida = [];\nfor (const item of $input.all()) {\n  const { sessao, blocos = [], cfg = {} } = item.json;\n  // Celular brasileiro pode chegar sem o 9 (ex.: 553199991234). Para enviar, a Meta casa com o número\n  // cadastrado, que tem o 9 (5531999991234): então o 9 é recolocado depois do DDD.\n  const to = String(sessao || '').replace(/^wa:/, '').replace(/^55(\\d{2})([6-9]\\d{7})$/, (m, ddd, num) => '55' + ddd + '9' + num);\n  const real = cfg.whatsapp_modo === 'real';\n  const url = 'https://graph.facebook.com/' + (cfg.whatsapp_graph_versao || 'v23.0') + '/' + (cfg.whatsapp_phone_number_id || 'SEM-PHONE-NUMBER-ID') + '/messages';\n  const cat = String(cfg.whatsapp_catalogo_id || '').trim();\n  const flowId = String(cfg.whatsapp_flow_tamanho_id || '').trim();\n  const baseN8n = String(cfg.url_base_n8n || '').replace(/\\/$/, '');\n  const msgs = [];\n\n  const texto = (t) => { t = md(t).trim(); while (t) { msgs.push({ type: 'text', text: { body: t.slice(0, 4096), preview_url: true } }); t = t.slice(4096); } };\n  const botoes = (corpo, lista, header) => msgs.push({ type: 'interactive', interactive: {\n    type: 'button', ...(header ? { header } : {}), body: { text: corta(md(corpo), 1024) },\n    action: { buttons: lista.slice(0, 3).map((b, i) => ({ type: 'reply', reply: { id: corta(b.id || 'b' + i, 256), title: corta(b.titulo, 20) } })) },\n  } });\n  const imagem = (link, legenda) => { if (/^https?:\\/\\//.test(link || '')) msgs.push({ type: 'image', image: { link, ...(legenda ? { caption: corta(md(legenda), 1024) } : {}) } }); };\n  const linkBotao = (corpo, rotulo, link) => msgs.push({ type: 'interactive', interactive: {\n    type: 'cta_url', body: { text: corta(md(corpo), 1024) }, action: { name: 'cta_url', parameters: { display_text: corta(rotulo, 20), url: link } },\n  } });\n  // Cartão de produto sem catálogo: foto no topo, preço no corpo e 3 botões\n  const cartao = (p, extra, comPreco) => botoes((extra ? extra + '\\n\\n' : '') + ficha(p, comPreco), [\n    { id: idAcao('quero', p), titulo: 'Quero essa' },\n    { id: idAcao('fotos', p), titulo: 'Ver mais fotos' },\n    { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' },\n  ], /^https?:\\/\\//.test(p.imagem || '') ? { type: 'image', image: { link: p.imagem } } : null);\n  // No catálogo da Meta cada tamanho é um item; a ficha abre no primeiro tamanho com estoque\n  const codigoMeta = (p) => (p.skus || [])[0] || p.item_group_id;\n  const fichaNativa = (p, corpo) => msgs.push({ type: 'interactive', interactive: {\n    type: 'product', ...(corpo ? { body: { text: corta(md(corpo), 1024) } } : {}),\n    action: { catalog_id: cat, product_retailer_id: codigoMeta(p) },\n  } });\n  const listaNativa = (cabecalho, corpo, secoes) => msgs.push({ type: 'interactive', interactive: {\n    type: 'product_list', header: { type: 'text', text: corta(cabecalho || 'Olden Sports', 60) },\n    body: { text: corta(md(corpo) || 'Dá uma olhada 👇', 1024) },\n    action: { catalog_id: cat, sections: secoes.slice(0, 10).map((s) => ({ title: corta(s.titulo, 24), product_items: s.produtos.map((p) => ({ product_retailer_id: codigoMeta(p) })) })) },\n  } });\n\n  for (const b of blocos) {\n    const p = b.produto || {};\n    switch (b.tipo) {\n      case 'texto':\n        if ((b.botoes || []).length) botoes(b.texto, b.botoes.map((x) => ({ id: x.id, titulo: x.titulo })));\n        else texto(b.texto);\n        break;\n      case 'menu':\n        msgs.push({ type: 'interactive', interactive: {\n          type: 'list', body: { text: corta(md(b.corpo), 1024) },\n          action: { button: corta(b.botao || 'Ver opções', 20), sections: [{ title: 'Opções', rows: (b.opcoes || []).slice(0, 10).map((o, i) => ({\n            id: corta(o.id || 'op' + i, 200), title: corta(o.titulo, 24), ...(o.descricao ? { description: corta(o.descricao, 72) } : {}),\n          })) }] },\n        } });\n        break;\n      case 'produto':\n        if (cat) { if (b.texto) texto(b.texto); fichaNativa(p); } else cartao(p, b.texto, b.mostrar_preco);\n        break;\n      case 'carrossel_produtos': {\n        const ps = (b.produtos || []).slice(0, 10);\n        if (cat) listaNativa('Separei pra você', b.corpo, [{ titulo: 'Sugestões', produtos: ps }]);\n        else { if (b.corpo) texto(b.corpo); ps.slice(0, 5).forEach((x) => cartao(x, '', b.mostrar_preco)); }\n        break;\n      }\n      case 'vitrine': {\n        const secoes = (b.secoes || []).map((s) => ({ titulo: s.titulo, produtos: s.produtos || [] }));\n        if (cat) listaNativa(b.cabecalho, b.corpo, secoes);\n        else {\n          // Sem catálogo: lista interativa (até 10 peças); tocar numa peça é o mesmo que \"Quero essa\"\n          let resta = 10;\n          const sections = secoes.map((s) => {\n            const rows = s.produtos.slice(0, resta).map((x) => ({ id: idAcao('quero', x), title: corta(x.nome, 24), description: corta(b.mostrar_preco ? brl(x.preco) + ' no cartão' + (x.preco_pix ? ' · Pix ' + brl(x.preco_pix) : '') : ((x.tamanhos || []).length ? 'Tam.: ' + x.tamanhos.join(', ') : ''), 72) }));\n            resta -= rows.length;\n            return { title: corta(s.titulo, 24), rows };\n          }).filter((s) => s.rows.length);\n          msgs.push({ type: 'interactive', interactive: {\n            type: 'list', header: { type: 'text', text: corta(b.cabecalho || 'Vitrine', 60) },\n            body: { text: corta(md(b.corpo) || 'Toque para ver as peças 👇', 1024) },\n            action: { button: 'Ver peças', sections },\n          } });\n        }\n        break;\n      }\n      case 'catalogo':\n        if (cat) msgs.push({ type: 'interactive', interactive: { type: 'catalog_message', body: { text: corta(md(b.corpo), 1024) }, action: { name: 'catalog_message' } } });\n        else linkBotao(b.corpo, 'Ver catálogo', 'https://www.oldensports.com.br/');\n        break;\n      case 'midias': {\n        const fotos = (p.imagens || []).map((i) => i.url).filter(Boolean).slice(0, 5);\n        fotos.forEach((u, i) => imagem(u, i === 0 ? (b.texto || p.nome) : ''));\n        if (p.video) texto('🎥 Vídeo: ' + linkVideo(p.video));\n        break;\n      }\n      case 'comparacao': {\n        if (b.texto) texto(b.texto);\n        (b.produtos || []).forEach((x) => imagem(x.imagem, ficha(x, true) + Object.keys(rotulos).filter((k) => (x.atributos || {})[k])\n          .map((k) => '\\n' + rotulos[k] + ': ' + String(x.atributos[k]).replace(/^[^:]{0,20}:\\s*/, '')).join('')));\n        if (baseN8n && (b.skus || []).length === 2) linkBotao('Quer ver as duas lado a lado?', 'Ver lado a lado', baseN8n + '/webhook/olden-comparacao?a=' + encodeURIComponent(b.skus[0]) + '&b=' + encodeURIComponent(b.skus[1]));\n        break;\n      }\n      case 'tamanho': {\n        const crianca = p.faixa_etaria === 'infantil' || p.faixa_etaria === 'bebe';\n        if (flowId) {\n          msgs.push({ type: 'interactive', interactive: {\n            type: 'flow', body: { text: corta(md(b.texto) || 'Me conta suas medidas que eu te digo o tamanho', 1024) },\n            action: { name: 'flow', parameters: {\n              flow_message_version: '3', flow_id: flowId, flow_cta: 'Ver meu tamanho',\n              mode: cfg.whatsapp_flow_modo === 'published' ? 'published' : 'draft',\n              flow_token: corta('tamanho|' + sessao + '|' + p.item_group_id, 200),\n              flow_action: 'navigate',\n              flow_action_payload: { screen: 'TAMANHO', data: { sku: p.item_group_id, nome: corta(p.nome, 80), adulto: !crianca, crianca } },\n            } },\n          } });\n        } else {\n          texto((b.texto ? b.texto + '\\n\\n' : '') + (crianca ? 'Me conta a idade da criança 😊' : 'Me conta sua altura, seu peso e se você gosta mais justa, normal ou solta 😊'));\n        }\n        break;\n      }\n      case 'pagamento':\n        linkBotao(b.texto, 'Pagar agora', b.url);\n        break;\n      case 'previa':\n        // Resultado do provador (montado em \"Juntar prévia\")\n        if (b.ok) {\n          const legenda = '✨ Prévia gerada por IA: você com ' + artigo(p.nome) + ' ' + p.nome + '. Sua foto já foi apagada.';\n          if (b.media_id) msgs.push({ type: 'image', image: { id: b.media_id, caption: corta(legenda, 1024) } });\n          else msgs.push({ type: 'image', image: { id: 'SIMULADO', caption: legenda }, _simulacao: 'prévia gerada com ' + Math.round((b.bytes || 0) / 1024) + ' KB' });\n          botoes('Curtiu? 😊', [{ id: idAcao('quero', p), titulo: 'Quero essa' }, { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' }]);\n        } else {\n          texto(b.motivo === 'sem_foto'\n            ? 'Não achei a sua foto aqui 😕 Me manda a selfie de novo?'\n            : 'Poxa, não consegui gerar a prévia agora 😕 Quer tentar com outra foto, de frente e com boa luz?');\n        }\n        break;\n      case 'provador':\n        // Só chega aqui se o provador estiver desligado (provador_ativo diferente de \"sim\")\n        texto('O provador virtual está desligado no momento 😕 Mas te ajudo com o tamanho e as fotos da peça!');\n        break;\n      default:\n        if (b.texto || b.corpo) texto(b.texto || b.corpo);\n    }\n  }\n\n  for (const m of msgs) {\n    const { _simulacao, ...msg } = m;\n    const resumo = msg.type === 'text' ? msg.text.body\n      : msg.type === 'image' ? '[imagem] ' + (msg.image.caption || msg.image.link || '')\n      : '[' + msg.interactive.type + '] ' + ((msg.interactive.body || {}).text || '');\n    saida.push({ json: {\n      sessao, url, real, tipo: msg.type === 'interactive' ? 'interactive:' + msg.interactive.type : msg.type,\n      texto: corta(resumo, 500) + (_simulacao ? ' (' + _simulacao + ')' : ''),\n      status: real ? 'enviando' : 'simulada',\n      payload: { messaging_product: 'whatsapp', recipient_type: 'individual', to, ...msg },\n    } });\n  }\n}\nreturn saida;\n"
+        "jsCode": "// Converte os blocos da Lia em mensagens da API oficial do WhatsApp (Cloud API).\n// Com catálogo da Meta (whatsapp_catalogo_id): fichas e listas nativas de produto.\n// Sem catálogo: foto + preço + botões de resposta, que funcionam em qualquer conta.\nconst corta = (s, n) => { s = String(s ?? '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };\nconst brl = (v) => (v == null ? '' : 'R$ ' + Number(v).toFixed(2).replace('.', ','));\n// Negrito do WhatsApp é *assim*; link em markdown vira \"texto: link\"\nconst md = (s) => String(s ?? '')\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '*$1*')\n  .replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '$1: $2');\nconst idAcao = (acao, p) => corta(acao + '|' + p.item_group_id + '|' + p.nome, 256);\n// Primeiro contato: só o produto (nome e tamanhos). Com o preço: cartão primeiro e o Pix como condição especial.\nconst ficha = (p, comPreco) => {\n  const tamanhos = (p.tamanhos || []).length ? '\\nTamanhos: ' + p.tamanhos.join(', ') : '';\n  if (!comPreco) return '*' + p.nome + '*' + tamanhos;\n  const promo = p.preco_original && p.preco_original > p.preco ? '~' + brl(p.preco_original) + '~ ' : '';\n  return '*' + p.nome + '*\\n' + promo + brl(p.preco) + ' no cartão' + (p.parcelamento ? ' (' + p.parcelamento + ')' : '')\n    + (p.preco_pix && p.preco_pix < p.preco ? '\\n✨ Condição especial no Pix: ' + brl(p.preco_pix) : '')\n    + tamanhos;\n};\nconst artigo = (nome) => (/^\\S*a\\b/i.test(String(nome || '').trim()) ? 'a' : 'o');\nconst linkVideo = (u) => String(u || '').replace('youtube.com/embed/', 'youtube.com/watch?v=');\nconst rotulos = { material: 'Material', gola: 'Gola', escudo: 'Escudo', manga: 'Manga' };\n\nconst saida = [];\nfor (const item of $input.all()) {\n  const { sessao, blocos = [], cfg = {} } = item.json;\n  // Celular brasileiro pode chegar sem o 9 (ex.: 553199991234). Para enviar, a Meta casa com o número\n  // cadastrado, que tem o 9 (5531999991234): então o 9 é recolocado depois do DDD.\n  const to = String(sessao || '').replace(/^wa:/, '').replace(/^55(\\d{2})([6-9]\\d{7})$/, (m, ddd, num) => '55' + ddd + '9' + num);\n  const real = cfg.whatsapp_modo === 'real';\n  const url = 'https://graph.facebook.com/' + (cfg.whatsapp_graph_versao || 'v23.0') + '/' + (cfg.whatsapp_phone_number_id || 'SEM-PHONE-NUMBER-ID') + '/messages';\n  const cat = String(cfg.whatsapp_catalogo_id || '').trim();\n  const flowId = String(cfg.whatsapp_flow_tamanho_id || '').trim();\n  const baseN8n = String(cfg.url_base_n8n || '').replace(/\\/$/, '');\n  const msgs = [];\n\n  const texto = (t) => { t = md(t).trim(); while (t) { msgs.push({ type: 'text', text: { body: t.slice(0, 4096), preview_url: true } }); t = t.slice(4096); } };\n  const botoes = (corpo, lista, header) => msgs.push({ type: 'interactive', interactive: {\n    type: 'button', ...(header ? { header } : {}), body: { text: corta(md(corpo), 1024) },\n    action: { buttons: lista.slice(0, 3).map((b, i) => ({ type: 'reply', reply: { id: corta(b.id || 'b' + i, 256), title: corta(b.titulo, 20) } })) },\n  } });\n  const imagem = (link, legenda) => { if (/^https?:\\/\\//.test(link || '')) msgs.push({ type: 'image', image: { link, ...(legenda ? { caption: corta(md(legenda), 1024) } : {}) } }); };\n  const linkBotao = (corpo, rotulo, link) => msgs.push({ type: 'interactive', interactive: {\n    type: 'cta_url', body: { text: corta(md(corpo), 1024) }, action: { name: 'cta_url', parameters: { display_text: corta(rotulo, 20), url: link } },\n  } });\n  // Cartão de produto sem catálogo: foto no topo, preço no corpo e 3 botões\n  const cartao = (p, extra, comPreco) => botoes((extra ? extra + '\\n\\n' : '') + ficha(p, comPreco), [\n    { id: idAcao('quero', p), titulo: 'Quero essa' },\n    { id: idAcao('fotos', p), titulo: 'Ver mais fotos' },\n    { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' },\n  ], /^https?:\\/\\//.test(p.imagem || '') ? { type: 'image', image: { link: p.imagem } } : null);\n  // No catálogo da Meta cada tamanho é um item; a ficha abre no primeiro tamanho com estoque\n  const codigoMeta = (p) => (p.skus || [])[0] || p.item_group_id;\n  const fichaNativa = (p, corpo) => msgs.push({ type: 'interactive', interactive: {\n    type: 'product', ...(corpo ? { body: { text: corta(md(corpo), 1024) } } : {}),\n    action: { catalog_id: cat, product_retailer_id: codigoMeta(p) },\n  } });\n  const listaNativa = (cabecalho, corpo, secoes) => msgs.push({ type: 'interactive', interactive: {\n    type: 'product_list', header: { type: 'text', text: corta(cabecalho || 'Olden Sports', 60) },\n    body: { text: corta(md(corpo) || 'Dá uma olhada 👇', 1024) },\n    action: { catalog_id: cat, sections: secoes.slice(0, 10).map((s) => ({ title: corta(s.titulo, 24), product_items: s.produtos.map((p) => ({ product_retailer_id: codigoMeta(p) })) })) },\n  } });\n\n  for (const b of blocos) {\n    const p = b.produto || {};\n    switch (b.tipo) {\n      case 'texto':\n        if ((b.botoes || []).length) botoes(b.texto, b.botoes.map((x) => ({ id: x.id, titulo: x.titulo })));\n        else texto(b.texto);\n        break;\n      case 'menu':\n        msgs.push({ type: 'interactive', interactive: {\n          type: 'list', body: { text: corta(md(b.corpo), 1024) },\n          action: { button: corta(b.botao || 'Ver opções', 20), sections: [{ title: 'Opções', rows: (b.opcoes || []).slice(0, 10).map((o, i) => ({\n            id: corta(o.id || 'op' + i, 200), title: corta(o.titulo, 24), ...(o.descricao ? { description: corta(o.descricao, 72) } : {}),\n          })) }] },\n        } });\n        break;\n      case 'produto':\n        if (cat) { if (b.texto) texto(b.texto); fichaNativa(p); } else cartao(p, b.texto, b.mostrar_preco);\n        break;\n      case 'carrossel_produtos': {\n        const ps = (b.produtos || []).slice(0, 10);\n        if (cat) listaNativa('Separei pra você', b.corpo, [{ titulo: 'Sugestões', produtos: ps }]);\n        else { if (b.corpo) texto(b.corpo); ps.slice(0, 5).forEach((x) => cartao(x, '', b.mostrar_preco)); }\n        break;\n      }\n      case 'vitrine': {\n        const secoes = (b.secoes || []).map((s) => ({ titulo: s.titulo, produtos: s.produtos || [] }));\n        if (cat) listaNativa(b.cabecalho, b.corpo, secoes);\n        else {\n          // Sem catálogo: lista interativa (até 10 peças); tocar numa peça é o mesmo que \"Quero essa\"\n          let resta = 10;\n          const sections = secoes.map((s) => {\n            const rows = s.produtos.slice(0, resta).map((x) => ({ id: idAcao('quero', x), title: corta(x.nome, 24), description: corta(b.mostrar_preco ? brl(x.preco) + ' no cartão' + (x.preco_pix ? ' · Pix ' + brl(x.preco_pix) : '') : ((x.tamanhos || []).length ? 'Tam.: ' + x.tamanhos.join(', ') : ''), 72) }));\n            resta -= rows.length;\n            return { title: corta(s.titulo, 24), rows };\n          }).filter((s) => s.rows.length);\n          msgs.push({ type: 'interactive', interactive: {\n            type: 'list', header: { type: 'text', text: corta(b.cabecalho || 'Vitrine', 60) },\n            body: { text: corta(md(b.corpo) || 'Toque para ver as peças 👇', 1024) },\n            action: { button: 'Ver peças', sections },\n          } });\n        }\n        break;\n      }\n      case 'catalogo':\n        if (cat) msgs.push({ type: 'interactive', interactive: { type: 'catalog_message', body: { text: corta(md(b.corpo), 1024) }, action: { name: 'catalog_message' } } });\n        else linkBotao(b.corpo, 'Ver catálogo', 'https://www.oldensports.com.br/');\n        break;\n      case 'midias': {\n        const fotos = (p.imagens || []).map((i) => i.url).filter(Boolean).slice(0, 5);\n        fotos.forEach((u, i) => imagem(u, i === 0 ? (b.texto || p.nome) : ''));\n        if (p.video) texto('🎥 Vídeo: ' + linkVideo(p.video));\n        break;\n      }\n      case 'comparacao': {\n        if (b.texto) texto(b.texto);\n        (b.produtos || []).forEach((x) => imagem(x.imagem, ficha(x, true) + Object.keys(rotulos).filter((k) => (x.atributos || {})[k])\n          .map((k) => '\\n' + rotulos[k] + ': ' + String(x.atributos[k]).replace(/^[^:]{0,20}:\\s*/, '')).join('')));\n        if (baseN8n && (b.skus || []).length === 2) linkBotao('Quer ver as duas lado a lado?', 'Ver lado a lado', baseN8n + '/webhook/olden-comparacao?a=' + encodeURIComponent(b.skus[0]) + '&b=' + encodeURIComponent(b.skus[1]));\n        break;\n      }\n      case 'tamanho': {\n        const crianca = p.faixa_etaria === 'infantil' || p.faixa_etaria === 'bebe';\n        if (flowId) {\n          msgs.push({ type: 'interactive', interactive: {\n            type: 'flow', body: { text: corta(md(b.texto) || 'Me conta suas medidas que eu te digo o tamanho', 1024) },\n            action: { name: 'flow', parameters: {\n              flow_message_version: '3', flow_id: flowId, flow_cta: 'Ver meu tamanho',\n              mode: cfg.whatsapp_flow_modo === 'published' ? 'published' : 'draft',\n              flow_token: corta('tamanho|' + sessao + '|' + p.item_group_id, 200),\n              flow_action: 'navigate',\n              flow_action_payload: { screen: 'TAMANHO', data: { sku: p.item_group_id, nome: corta(p.nome, 80), adulto: !crianca, crianca } },\n            } },\n          } });\n        } else {\n          texto((b.texto ? b.texto + '\\n\\n' : '') + (crianca ? 'Me conta a idade da criança 😊' : 'Me conta sua altura, seu peso e se você gosta mais justa, normal ou solta 😊'));\n        }\n        break;\n      }\n      case 'pagamento':\n        linkBotao(b.texto, 'Pagar agora', b.url);\n        break;\n      case 'previa':\n        // Resultado do provador (montado em \"Juntar prévia\")\n        if (b.ok) {\n          const legenda = '✨ Prévia gerada por IA: você com ' + artigo(p.nome) + ' ' + p.nome + '. Sua foto já foi apagada.';\n          if (b.media_id) msgs.push({ type: 'image', image: { id: b.media_id, caption: corta(legenda, 1024) } });\n          else msgs.push({ type: 'image', image: { id: 'SIMULADO', caption: legenda }, _simulacao: 'prévia gerada com ' + Math.round((b.bytes || 0) / 1024) + ' KB' });\n          botoes('Curtiu? 😊', [{ id: idAcao('quero', p), titulo: 'Quero essa' }, { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' }]);\n        } else {\n          texto(b.mensagem || (b.motivo === 'sem_foto'\n            ? 'Não achei a sua foto aqui 😕 Me manda a selfie de novo?'\n            : 'Poxa, não consegui gerar a prévia agora 😕 Quer tentar com outra foto, de frente e com boa luz?'));\n        }\n        break;\n      case 'provador':\n        // Só chega aqui se o provador estiver desligado (provador_ativo diferente de \"sim\")\n        texto('O provador virtual está desligado no momento 😕 Mas te ajudo com o tamanho e as fotos da peça!');\n        break;\n      default:\n        if (b.texto || b.corpo) texto(b.texto || b.corpo);\n    }\n  }\n\n  for (const m of msgs) {\n    const { _simulacao, ...msg } = m;\n    const resumo = msg.type === 'text' ? msg.text.body\n      : msg.type === 'image' ? '[imagem] ' + (msg.image.caption || msg.image.link || '')\n      : '[' + msg.interactive.type + '] ' + ((msg.interactive.body || {}).text || '');\n    saida.push({ json: {\n      sessao, url, real, tipo: msg.type === 'interactive' ? 'interactive:' + msg.interactive.type : msg.type,\n      texto: corta(resumo, 500) + (_simulacao ? ' (' + _simulacao + ')' : ''),\n      status: real ? 'enviando' : 'simulada',\n      payload: { messaging_product: 'whatsapp', recipient_type: 'individual', to, ...msg },\n    } });\n  }\n}\nreturn saida;\n"
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000435",
+      "id": "b2000000-0000-4000-8000-000000000439",
       "name": "Enviar de verdade?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -795,7 +878,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000436",
+      "id": "b2000000-0000-4000-8000-000000000440",
       "name": "Enviar ao WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -830,7 +913,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000437",
+      "id": "b2000000-0000-4000-8000-000000000441",
       "name": "Resultado do envio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -844,7 +927,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000438",
+      "id": "b2000000-0000-4000-8000-000000000442",
       "name": "Registrar saída",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -861,7 +944,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000439",
+      "id": "b2000000-0000-4000-8000-000000000443",
       "name": "Avisos da loja",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -874,7 +957,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000440",
+      "id": "b2000000-0000-4000-8000-000000000444",
       "name": "Avisos pendentes",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -890,7 +973,7 @@
       "executeOnce": true
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000441",
+      "id": "b2000000-0000-4000-8000-000000000445",
       "name": "Preparar avisos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -903,7 +986,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000442",
+      "id": "b2000000-0000-4000-8000-000000000446",
       "name": "Feed do catálogo",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -920,7 +1003,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000443",
+      "id": "b2000000-0000-4000-8000-000000000447",
       "name": "Montar feed",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -935,7 +1018,7 @@
       }
     },
     {
-      "id": "b2000000-0000-4000-8000-000000000444",
+      "id": "b2000000-0000-4000-8000-000000000448",
       "name": "Responder feed",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -1241,7 +1324,7 @@
       "main": [
         [
           {
-            "node": "Pedido ao provador",
+            "node": "Pedido de conferência",
             "type": "main",
             "index": 0
           }
@@ -1263,7 +1346,63 @@
       "main": [
         [
           {
+            "node": "Pedido de conferência",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedido de conferência": {
+      "main": [
+        [
+          {
+            "node": "Conferir selfie",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Apagar referência da selfie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conferir selfie": {
+      "main": [
+        [
+          {
+            "node": "Ler conferência",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler conferência": {
+      "main": [
+        [
+          {
+            "node": "Selfie aprovada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selfie aprovada?": {
+      "main": [
+        [
+          {
             "node": "Pedido ao provador",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Juntar prévia",
             "type": "main",
             "index": 0
           }
@@ -1295,11 +1434,6 @@
     "Ler prévia": {
       "main": [
         [
-          {
-            "node": "Apagar referência da selfie",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Subir prévia?",
             "type": "main",

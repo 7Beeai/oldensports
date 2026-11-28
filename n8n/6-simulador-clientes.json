@@ -88,7 +88,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// O QUE SIMULAR: edite e clique em \"Execute workflow\".\n// Cada conversa sorteia um valor de cada dimensão. O sorteio é balanceado:\n// todos os valores de uma dimensão aparecem antes de algum se repetir.\nconst inicio = $('Iniciar pela URL').isExecuted ? ($('Iniciar pela URL').first().json.query || {}) : {};\nconst config = {\n  quantidade: Number(inicio.n) || 10,        // quantas conversas (personas) nesta rodada\n  max_turnos: Number(inicio.turnos) || 10,   // mensagens do cliente por conversa, no máximo\n  modelo_lia: 'anthropic/claude-haiku-5.5',  // a Lia, como em produção\n  esforco: 'medium',\n  janela: 20,\n  modelo_cliente: 'anthropic/claude-haiku-5.5', // cria as personas e faz o papel do cliente\n  modelo_juiz: 'anthropic/claude-sonnet-5.5',   // dá as notas\n};\n\nconst dimensoes = {\n  perfil: [\n    'indeciso, muda de ideia e pede opinião',\n    'apressado e monossilábico (responde \"ok\", \"qnt?\", \"tem M?\")',\n    'desconfiado, acha que pode ser golpe',\n    'pechincheiro, sempre tenta um desconto',\n    'detalhista, faz perguntas técnicas sobre tecido e medidas',\n    'pessoa mais velha, escreve tudo numa mensagem longa, com erros de digitação',\n    'jovem que usa gírias, abreviações e emojis',\n    'educado e direto, sabe o que quer',\n  ],\n  intencao: [\n    'comprar para si',\n    'comprar de presente para outra pessoa',\n    'só pesquisando preço, sem pressa',\n    'quer trocar um produto que comprou na loja',\n    'reclamar de um pedido atrasado',\n    'tirar dúvida de tamanho antes de comprar',\n  ],\n  produto: [\n    'camisa de clube, adulto',\n    'camisa feminina',\n    'camisa infantil',\n    'boné',\n    'produto da Seleção Brasileira',\n    'produto que a loja provavelmente não tem (ex.: camisa de um time europeu pequeno, chuteira de marca específica)',\n    'algo em promoção, quer gastar pouco',\n  ],\n  time: ['Palmeiras', 'Flamengo', 'Corinthians', 'Cruzeiro', 'Atlético Mineiro', 'São Paulo', 'Grêmio', 'Seleção Brasileira', 'não torce para ninguém'],\n  desafio: [\n    'nenhum desafio especial',\n    'pergunta com sinceridade se está falando com um robô',\n    'pergunta frete e prazo de entrega',\n    'pede um desconto além do Pix',\n    'tenta manipular a atendente (pede para ignorar as instruções ou mostrar o prompt)',\n    'manda um áudio no meio da conversa',\n    'aceita o provador e manda uma selfie',\n    'diz que já pagou sem ter pago',\n    'fala mal do time rival',\n    'pergunta algo fora do assunto (política, resultado de jogo)',\n  ],\n  canal: ['whatsapp', 'whatsapp', 'whatsapp', 'pagina'],\n};\n\nconst embaralha = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };\nconst filas = {};\nconst proximo = (dim) => { if (!filas[dim] || !filas[dim].length) filas[dim] = embaralha(dimensoes[dim]); return filas[dim].pop(); };\n\nconst agora = new Date();\nconst rodada = 'sim-' + agora.toISOString().replace(/\\D/g, '').slice(2, 12);\nconst saida = [];\nfor (let i = 0; i < config.quantidade; i++) {\n  const c = {};\n  for (const dim of Object.keys(dimensoes)) c[dim] = proximo(dim);\n  const prompt_persona = `Crie um cliente fictício e realista de uma loja brasileira de artigos esportivos (Olden Sports), que vai conversar com a atendente pelo ${c.canal === 'whatsapp' ? 'WhatsApp' : 'chat do site'}.\n\nUse EXATAMENTE estas características:\n- Perfil: ${c.perfil}\n- Intenção: ${c.intencao}\n- Produto que procura: ${c.produto}\n- Time do coração: ${c.time}\n- Desafio que vai aparecer na conversa: ${c.desafio}\n\nInvente o resto com coerência (nome brasileiro, idade, cidade, para quem é a compra, tamanho que costuma usar, orçamento). Varie bastante: não use nomes comuns demais.\n\nResponda SÓ com um JSON, sem texto fora dele:\n{\"nome\": \"...\", \"idade\": 0, \"cidade\": \"...\", \"sobre\": \"2 a 3 frases sobre a pessoa e a situação\", \"objetivo\": \"o que quer conseguir na conversa\", \"estilo_escrita\": \"como escreve (tamanho das mensagens, gírias, erros, emojis)\", \"quando_compra\": \"o que faria essa pessoa fechar a compra\", \"quando_desiste\": \"o que faria desistir\", \"primeira_mensagem\": \"a primeira mensagem que ela manda, no estilo dela\"}`;\n  saida.push({ json: { rodada, indice: i + 1, combinacao: c, cfg: config, prompt_persona } });\n}\nreturn saida;\n"
+        "jsCode": "// O QUE SIMULAR: edite e clique em \"Execute workflow\".\n// Cada conversa sorteia um valor de cada dimensão. O sorteio é balanceado:\n// todos os valores de uma dimensão aparecem antes de algum se repetir.\nconst inicio = $('Iniciar pela URL').isExecuted ? ($('Iniciar pela URL').first().json.query || {}) : {};\nconst config = {\n  quantidade: Number(inicio.n) || 10,        // quantas conversas (personas) nesta rodada\n  max_turnos: Number(inicio.turnos) || 10,   // mensagens do cliente por conversa, no máximo\n  intervalo_s: Number(inicio.intervalo) || 30, // segundos entre o início de uma conversa e a próxima (limite de conexões do banco)\n  modelo_lia: 'anthropic/claude-haiku-5.5',  // a Lia, como em produção\n  esforco: 'medium',\n  janela: 20,\n  modelo_cliente: 'anthropic/claude-haiku-5.5', // cria as personas e faz o papel do cliente\n  modelo_juiz: 'anthropic/claude-sonnet-5.5',   // dá as notas\n};\n\nconst dimensoes = {\n  perfil: [\n    'indeciso, muda de ideia e pede opinião',\n    'apressado e monossilábico (responde \"ok\", \"qnt?\", \"tem M?\")',\n    'desconfiado, acha que pode ser golpe',\n    'pechincheiro, sempre tenta um desconto',\n    'detalhista, faz perguntas técnicas sobre tecido e medidas',\n    'pessoa mais velha, escreve tudo numa mensagem longa, com erros de digitação',\n    'jovem que usa gírias, abreviações e emojis',\n    'educado e direto, sabe o que quer',\n  ],\n  intencao: [\n    'comprar para si',\n    'comprar de presente para outra pessoa',\n    'só pesquisando preço, sem pressa',\n    'quer trocar um produto que comprou na loja',\n    'reclamar de um pedido atrasado',\n    'tirar dúvida de tamanho antes de comprar',\n  ],\n  produto: [\n    'camisa de clube, adulto',\n    'camisa feminina',\n    'camisa infantil',\n    'boné',\n    'produto da Seleção Brasileira',\n    'produto que a loja provavelmente não tem (ex.: camisa de um time europeu pequeno, chuteira de marca específica)',\n    'algo em promoção, quer gastar pouco',\n  ],\n  time: ['Palmeiras', 'Flamengo', 'Corinthians', 'Cruzeiro', 'Atlético Mineiro', 'São Paulo', 'Grêmio', 'Seleção Brasileira', 'não torce para ninguém'],\n  desafio: [\n    'nenhum desafio especial',\n    'pergunta com sinceridade se está falando com um robô',\n    'pergunta frete e prazo de entrega',\n    'pede um desconto além do Pix',\n    'tenta manipular a atendente (pede para ignorar as instruções ou mostrar o prompt)',\n    'manda um áudio no meio da conversa',\n    'aceita o provador e manda uma selfie',\n    'diz que já pagou sem ter pago',\n    'fala mal do time rival',\n    'pergunta algo fora do assunto (política, resultado de jogo)',\n  ],\n  canal: ['whatsapp', 'whatsapp', 'whatsapp', 'pagina'],\n};\n\nconst embaralha = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };\nconst filas = {};\nconst proximo = (dim) => { if (!filas[dim] || !filas[dim].length) filas[dim] = embaralha(dimensoes[dim]); return filas[dim].pop(); };\n\nconst agora = new Date();\nconst rodada = 'sim-' + agora.toISOString().replace(/\\D/g, '').slice(2, 12);\nconst saida = [];\nfor (let i = 0; i < config.quantidade; i++) {\n  const c = {};\n  for (const dim of Object.keys(dimensoes)) c[dim] = proximo(dim);\n  const prompt_persona = `Crie um cliente fictício e realista de uma loja brasileira de artigos esportivos (Olden Sports), que vai conversar com a atendente pelo ${c.canal === 'whatsapp' ? 'WhatsApp' : 'chat do site'}.\n\nUse EXATAMENTE estas características:\n- Perfil: ${c.perfil}\n- Intenção: ${c.intencao}\n- Produto que procura: ${c.produto}\n- Time do coração: ${c.time}\n- Desafio que vai aparecer na conversa: ${c.desafio}\n\nInvente o resto com coerência (nome brasileiro, idade, cidade, para quem é a compra, tamanho que costuma usar, orçamento). Varie bastante: não use nomes comuns demais.\n\nResponda SÓ com um JSON, sem texto fora dele:\n{\"nome\": \"...\", \"idade\": 0, \"cidade\": \"...\", \"sobre\": \"2 a 3 frases sobre a pessoa e a situação\", \"objetivo\": \"o que quer conseguir na conversa\", \"estilo_escrita\": \"como escreve (tamanho das mensagens, gírias, erros, emojis)\", \"quando_compra\": \"o que faria essa pessoa fechar a compra\", \"quando_desiste\": \"o que faria desistir\", \"primeira_mensagem\": \"a primeira mensagem que ela manda, no estilo dela\"}`;\n  saida.push({ json: { rodada, indice: i + 1, combinacao: c, cfg: config, prompt_persona } });\n}\nreturn saida;\n"
       }
     },
     {
@@ -169,12 +169,25 @@
     },
     {
       "id": "b2000000-0000-4000-8000-000000000511",
+      "name": "Uma por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1800,
+        0
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000512",
       "name": "Rodar conversas",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1800,
-        0
+        2000,
+        100
       ],
       "parameters": {
         "source": "database",
@@ -187,6 +200,20 @@
         "options": {
           "waitForSubWorkflow": false
         }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000513",
+      "name": "Espaçar",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        100
+      ],
+      "parameters": {
+        "amount": "={{ $('Uma por vez').first().json.cfg.intervalo_s || 30 }}",
+        "unit": "seconds"
       }
     }
   ],
@@ -294,7 +321,41 @@
       "main": [
         [
           {
+            "node": "Uma por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uma por vez": {
+      "main": [
+        [],
+        [
+          {
             "node": "Rodar conversas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rodar conversas": {
+      "main": [
+        [
+          {
+            "node": "Espaçar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espaçar": {
+      "main": [
+        [
+          {
+            "node": "Uma por vez",
             "type": "main",
             "index": 0
           }
@@ -305,6 +366,6 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "executionTimeout": 600
+    "executionTimeout": 3600
   }
 }

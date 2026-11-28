@@ -5,6 +5,7 @@ const inicio = $('Iniciar pela URL').isExecuted ? ($('Iniciar pela URL').first()
 const config = {
   quantidade: Number(inicio.n) || 10,        // quantas conversas (personas) nesta rodada
   max_turnos: Number(inicio.turnos) || 10,   // mensagens do cliente por conversa, no máximo
+  intervalo_s: Number(inicio.intervalo) || 30, // segundos entre o início de uma conversa e a próxima (limite de conexões do banco)
   modelo_lia: 'anthropic/claude-haiku-5.5',  // a Lia, como em produção
   esforco: 'medium',
   janela: 20,

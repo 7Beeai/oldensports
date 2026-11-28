@@ -10,6 +10,6 @@ for (const b of base.blocos || []) {
   if (b.tipo !== 'provador') { blocos.push(b); continue; }
   if (b.texto) blocos.push({ tipo: 'texto', texto: b.texto, botoes: [] });
   blocos.push({ tipo: 'previa', ok, media_id: mediaId, produto: b.produto, bytes: lp.bytes || 0,
-    motivo: ok ? null : (lp.motivo || 'falha ao subir a imagem') });
+    motivo: ok ? null : (lp.motivo || 'falha ao subir a imagem'), mensagem: ok ? null : (lp.mensagem || null) });
 }
 return [{ json: { ...base, blocos } }];

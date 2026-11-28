@@ -41,7 +41,8 @@ insert into configuracao (chave, valor) values
   ('whatsapp_verify_token', substr(md5(random()::text || clock_timestamp()::text), 1, 24)),
   ('whatsapp_numeros_teste', ''),          -- só estes números falam com a Lia (vírgula); vazio = todos
   ('provador_ativo', 'sim'),
-  ('provador_modelo', 'google/gemini-3.1-flash-image')
+  ('provador_modelo', 'google/gemini-3.1-flash-image'),
+  ('provador_modelo_conferencia', 'anthropic/claude-haiku-5.5') -- confere a selfie antes de gerar
 on conflict (chave) do nothing;
 
 -- 3. Avisos proativos (pagamento e rastreio) também no WhatsApp ------------

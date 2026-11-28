@@ -150,9 +150,9 @@ for (const item of $input.all()) {
           else msgs.push({ type: 'image', image: { id: 'SIMULADO', caption: legenda }, _simulacao: 'prévia gerada com ' + Math.round((b.bytes || 0) / 1024) + ' KB' });
           botoes('Curtiu? 😊', [{ id: idAcao('quero', p), titulo: 'Quero essa' }, { id: idAcao('tam', p), titulo: 'Qual meu tamanho?' }]);
         } else {
-          texto(b.motivo === 'sem_foto'
+          texto(b.mensagem || (b.motivo === 'sem_foto'
             ? 'Não achei a sua foto aqui 😕 Me manda a selfie de novo?'
-            : 'Poxa, não consegui gerar a prévia agora 😕 Quer tentar com outra foto, de frente e com boa luz?');
+            : 'Poxa, não consegui gerar a prévia agora 😕 Quer tentar com outra foto, de frente e com boa luz?'));
         }
         break;
       case 'provador':
